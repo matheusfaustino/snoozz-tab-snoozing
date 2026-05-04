@@ -305,6 +305,25 @@
 				<option value="off">No I hate progress</option>
 			</select></div>
 		</div>
+		<div class="input-container flex" id="server-api">
+			<div>
+				<h4>Snooze Server</h4>
+				<p>Connect to a self-hosted server to sync snoozes across devices and receive iOS push notifications.</p>
+				<p>When the server is unreachable, Snoozz falls back to local-only behavior automatically.</p>
+			</div>
+			<div class="server-api-controls">
+				<div class="server-input-row">
+					<input type="url" id="serverUrl" placeholder="https://tabs.yourdomain.com" spellcheck="false" autocomplete="off">
+				</div>
+				<div class="server-input-row">
+					<input type="password" id="serverToken" placeholder="API token" autocomplete="off">
+				</div>
+				<div class="server-input-row">
+					<div tabindex="0" id="testConnection" class="full-btn"><div>Test connection</div></div>
+					<span id="serverStatus" class="server-status"></span>
+				</div>
+			</div>
+		</div>
 		<div class="input-container flex">
 			<div>
 				<h4>Manage Snoozz Data</h4>

@@ -253,6 +253,49 @@ code {
 input[type=checkbox] {
 	margin: 0 1em;
 }
+.server-api-controls {
+	display: flex;
+	flex-direction: column;
+	gap: .5rem;
+	min-width: 16em;
+}
+.server-input-row {
+	display: flex;
+	align-items: center;
+	gap: .5rem;
+}
+input[type="url"],
+input[type="password"] {
+	border: none;
+	border-bottom: 2px solid transparent;
+	background: transparent;
+	color: var(--color);
+	font-size: .9rem;
+	padding: .25em .25em .25em 0;
+	width: 100%;
+	outline: none;
+	transition: border-color .25s ease-in-out;
+}
+input[type="url"]:focus,
+input[type="password"]:focus {
+	border-bottom-color: #f3b845;
+}
+input[type="url"]:not(:placeholder-shown),
+input[type="password"]:not(:placeholder-shown) {
+	border-bottom-color: var(--color);
+}
+input[type="url"]::placeholder,
+input[type="password"]::placeholder {
+	color: var(--color);
+	opacity: .35;
+}
+.server-status {
+	font-size: .8em;
+	white-space: nowrap;
+	padding-left: .5rem;
+}
+.server-status.connected { color: limegreen; }
+.server-status.failed { color: crimson; }
 
 .storage-available {
 	margin: 2.5em auto .5em;

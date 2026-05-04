@@ -595,7 +595,9 @@ const DEFAULT_OPTIONS = {
 	napCollapsed: [],
 	weekStart: 0,
 	popup: {weekend: 'morning', monday: 'morning', week: 'morning', month: 'morning'},
-	contextMenu: ['startup', 'in-an-hour', 'today-evening', 'tom-morning', 'weekend']
+	contextMenu: ['startup', 'in-an-hour', 'today-evening', 'tom-morning', 'weekend'],
+	serverUrl: '',
+	serverToken: '',
 }
 
 var calcObjectSize = obj => SIZES[typeof obj](obj);

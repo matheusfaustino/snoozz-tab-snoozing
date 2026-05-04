@@ -59,6 +59,8 @@ function updateFormValues(storage) {
 		}
 	});
 	if (storage.contextMenu && storage.contextMenu.length) storage.contextMenu.forEach(o => document.getElementById(o).checked = true);
+	if (storage.serverUrl !== undefined) document.getElementById('serverUrl').value = storage.serverUrl;
+	if (storage.serverToken !== undefined) document.getElementById('serverToken').value = storage.serverToken;
 	resizeDropdowns();
 }
 
@@ -85,6 +87,11 @@ function addListeners() {
 
 	document.getElementById('reset').addEventListener('click', resetSettings);
 	document.getElementById('reset').onkeyup = e => {if (e.which === 13) resetSettings()}
+
+	document.getElementById('serverUrl').addEventListener('change', save);
+	document.getElementById('serverToken').addEventListener('change', save);
+	document.getElementById('testConnection').addEventListener('click', testServerConnection);
+	document.getElementById('testConnection').onkeyup = e => {if (e.which === 13) testServerConnection()}
 
 	document.querySelector('code').addEventListener('click', _ => {
 		clipboard('about:addons')
@@ -126,6 +133,8 @@ Would you like to update ${tabsToChange.length > 1 ? 'them' : 'it'} to snooze ti
 	// handle morning evening time separately
 	['morning', 'evening'].forEach(o => options[o] = [parseInt(document.getElementById(`${o}_h`).value), parseInt(document.getElementById(`${o}_m`).value)]);
 	options.contextMenu = Array.from(document.querySelectorAll('#contextMenu input:checked')).map(c => c.id);
+	options.serverUrl = document.getElementById('serverUrl').value.trim();
+	options.serverToken = document.getElementById('serverToken').value.trim();
 	await saveOptions(options);
 	await setTheme();
 	await fetchHourFormat();
@@ -248,6 +257,35 @@ function fillAbout() {
 	var emojis = ['🥭', '🌶️', '🍛', '🐅', '🐘', '🦚', '🍄', '☔', '🏏', '🚃', '🛺', '🪁', '🪔'];
 	document.querySelector('.emoji').innerText = emojis[[Math.floor(Math.random() * emojis.length)]];
 	document.getElementById('version').innerText = `Snoozz v${chrome.runtime.getManifest().version}`;
+}
+
+async function testServerConnection() {
+	var url = document.getElementById('serverUrl').value.trim();
+	var token = document.getElementById('serverToken').value.trim();
+	var status = document.getElementById('serverStatus');
+	if (!url) { status.textContent = 'Enter a server URL first'; status.className = 'server-status failed'; return; }
+	status.textContent = 'Testing...';
+	status.className = 'server-status';
+	try {
+		var headers = token ? {'Authorization': `Bearer ${token}`} : {};
+		var response = await Promise.race([
+			fetch(`${url}/api/heartbeat`, {method: 'POST', headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify({timestamp: new Date().toISOString()})}),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+		]);
+		if (response.ok) {
+			status.textContent = 'Connected';
+			status.className = 'server-status connected';
+		} else if (response.status === 401) {
+			status.textContent = 'Invalid token';
+			status.className = 'server-status failed';
+		} else {
+			status.textContent = `Error ${response.status}`;
+			status.className = 'server-status failed';
+		}
+	} catch(e) {
+		status.textContent = e.message === 'timeout' ? 'Timed out' : 'Unreachable';
+		status.className = 'server-status failed';
+	}
 }
 
 window.onload = initialize
