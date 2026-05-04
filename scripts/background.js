@@ -1,5 +1,6 @@
 chrome.runtime.onMessage.addListener(async msg => {
 	if (msg.logOptions) sendToLogs(msg.logOptions);
+	if (msg.registerSnooze) serverRegisterSnooze(msg.registerSnooze);
 	if (msg.poll && (navigator && navigator.onLine)) {
 		var p = await getOptions('polling');
 		if (p !== 'off') poll(msg.poll);

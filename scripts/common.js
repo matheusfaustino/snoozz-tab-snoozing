@@ -257,6 +257,9 @@ async function snoozeTab(snoozeTime, overrideTab) {
 	if (snoozeTime === 'startup') sleepyTab.startUp = true;
 	await saveTab(sleepyTab);
 	chrome.runtime.sendMessage({logOptions: ['tab', sleepyTab, snoozeTime]});
+	var reg = {id: sleepyTab.id, url: sleepyTab.url, title: sleepyTab.title, fire_at: new Date(sleepyTab.wakeUpTime).toISOString(), status: 'snoozed', updated_at: new Date().toISOString()};
+	if (typeof serverRegisterSnooze === 'function') serverRegisterSnooze(reg);
+	else chrome.runtime.sendMessage({registerSnooze: reg});
 	var tabId = activeTab.id || await getTabId(activeTab.url);
 	return {tabId, tabDBId: sleepyTab.id}
 }

@@ -56,8 +56,20 @@ async function serverHeartbeat() {
 }
 
 async function serverRegisterSnooze(snooze) {
-	var res = await _serverRequest('POST', '/api/snooze', snooze);
-	return res ? res.json().catch(() => null) : null;
+	var {url, token} = await _getServerConfig();
+	if (!url || !serverAvailable) return null;
+	try {
+		var res = await Promise.race([
+			fetch(`${url}/api/snooze`, {method: 'POST', headers: _serverHeaders(token), body: JSON.stringify(snooze)}),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+		]);
+		if (res.status === 409) return null;
+		if (!res.ok) throw new Error(`HTTP ${res.status}`);
+		return res.json().catch(() => null);
+	} catch(e) {
+		serverAvailable = false;
+		return null;
+	}
 }
 
 async function serverGetSnooze(id) {
