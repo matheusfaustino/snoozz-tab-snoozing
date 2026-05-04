@@ -264,14 +264,20 @@ async function testServerConnection() {
 	var token = document.getElementById('serverToken').value.trim();
 	var status = document.getElementById('serverStatus');
 	if (!url) { status.textContent = 'Enter a server URL first'; status.className = 'server-status failed'; return; }
+	try { new URL(url); } catch (_) { status.textContent = 'Invalid URL format'; status.className = 'server-status failed'; return; }
 	status.textContent = 'Testing...';
 	status.className = 'server-status';
+	var controller = new AbortController();
+	var timeoutId = setTimeout(() => controller.abort(), 5000);
 	try {
-		var headers = token ? {'Authorization': `Bearer ${token}`} : {};
-		var response = await Promise.race([
-			fetch(`${url}/api/heartbeat`, {method: 'POST', headers: {'Content-Type': 'application/json', ...headers}, body: JSON.stringify({timestamp: new Date().toISOString()})}),
-			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
-		]);
+		var headers = {'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`};
+		var response = await fetch(`${url}/api/heartbeat`, {
+			method: 'POST',
+			headers,
+			body: JSON.stringify({timestamp: new Date().toISOString()}),
+			signal: controller.signal
+		});
+		clearTimeout(timeoutId);
 		if (response.ok) {
 			status.textContent = 'Connected';
 			status.className = 'server-status connected';
@@ -279,11 +285,12 @@ async function testServerConnection() {
 			status.textContent = 'Invalid token';
 			status.className = 'server-status failed';
 		} else {
-			status.textContent = `Error ${response.status}`;
+			status.textContent = `Server error ${response.status}`;
 			status.className = 'server-status failed';
 		}
 	} catch(e) {
-		status.textContent = e.message === 'timeout' ? 'Timed out' : 'Unreachable';
+		clearTimeout(timeoutId);
+		status.textContent = e.name === 'AbortError' ? 'Timed out' : 'Could not reach server';
 		status.className = 'server-status failed';
 	}
 }
