@@ -190,6 +190,8 @@ async function init() {
 		allTabs.filter(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened).forEach(t => t.wakeUpTime = dayjs().subtract(10, 's').valueOf());
 		await saveTabs(allTabs);
 	}
+	chrome.alarms.create('serverHeartbeat', { periodInMinutes: 5 })
+	await serverHeartbeat()
 	await wakeUpTask();
 	await setUpContextMenus();
 }
@@ -205,7 +207,10 @@ chrome.runtime.onInstalled.addListener(async details => {
 	}
 });
 chrome.runtime.onStartup.addListener(init);
-chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask()});
+chrome.alarms.onAlarm.addListener(async a => {
+	if (a.name === 'wakeUpTabs') await wakeUpTask()
+	if (a.name === 'serverHeartbeat') await serverHeartbeat()
+});
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {
 		if (navigator && navigator.onLine === false) {
