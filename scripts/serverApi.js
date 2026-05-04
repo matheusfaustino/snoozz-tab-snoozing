@@ -73,8 +73,18 @@ async function serverRegisterSnooze(snooze) {
 }
 
 async function serverGetSnooze(id) {
-	var res = await _serverRequest('GET', `/api/snooze/${id}`);
-	return res ? res.json().catch(() => null) : null;
+	var {url, token} = await _getServerConfig();
+	if (!url || !serverAvailable) return null;
+	try {
+		var res = await Promise.race([
+			fetch(`${url}/api/snooze/${id}`, {method: 'GET', headers: _serverHeaders(token)}),
+			new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+		]);
+		if (!res.ok) return null;
+		return res.json().catch(() => null);
+	} catch(e) {
+		return null;
+	}
 }
 
 async function serverUpdateSnooze(id, data) {

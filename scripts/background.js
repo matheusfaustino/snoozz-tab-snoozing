@@ -77,9 +77,17 @@ async function wakeMeUp(tabs) {
 	var wakingUp = t => !t.paused && !t.opened && (t.url || (t.tabs && t.tabs.length && t.tabs.length > 0)) && t.wakeUpTime && t.wakeUpTime <= now;
 	var tabsToWakeUp = tabs.filter(wakingUp);
 	if (tabsToWakeUp.length === 0) return;
+	var allowed = [];
+	for (var t of tabsToWakeUp) {
+		var rec = await serverGetSnooze(t.id);
+		if (rec && rec.status !== 'snoozed') continue;
+		allowed.push(t);
+	}
+	tabsToWakeUp = allowed;
+	if (tabsToWakeUp.length === 0) return;
 	bgLog(['Waking up tabs', tabsToWakeUp.map(t => t.id).join(', ')], ['', 'green'], 'yellow');
-	tabs.filter(wakingUp).filter(t => !t.repeat).forEach(t => t.opened = now);
-	for (var s of tabs.filter(wakingUp).filter(t => t.repeat)) {
+	tabsToWakeUp.filter(t => !t.repeat).forEach(t => t.opened = now);
+	for (var s of tabsToWakeUp.filter(t => t.repeat)) {
 		var next = await calculateNextSnoozeTime(s.repeat);
 		s.wakeUpTime = next.valueOf();
 	}

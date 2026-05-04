@@ -247,6 +247,61 @@ describe('serverRegisterSnooze', () => {
 	})
 })
 
+// ─── serverGetSnooze ─────────────────────────────────────────────────────────
+
+describe('serverGetSnooze', () => {
+	it('returns null without fetching when server is unavailable', async () => {
+		const ctx = makeCtx({ serverUrl: 'https://api.example.com', serverToken: 'tok' })
+		expect(await ctx.serverGetSnooze('abc')).toBeNull()
+		expect(ctx.fetch).not.toHaveBeenCalled()
+	})
+
+	it('returns null when serverUrl is empty', async () => {
+		const ctx = makeCtx()
+		expect(await ctx.serverGetSnooze('abc')).toBeNull()
+	})
+
+	it('GETs /api/snooze/:id with Authorization header', async () => {
+		const ctx = makeCtx({ serverUrl: 'https://api.example.com', serverToken: 'tok' })
+		ctx.fetch.mockResolvedValue({ ok: true })
+		await ctx.serverHeartbeat()
+		const record = { id: 'abc', status: 'snoozed' }
+		ctx.fetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(record) })
+		await ctx.serverGetSnooze('abc')
+		const [url, opts] = ctx.fetch.mock.calls.at(-1)
+		expect(url).toBe('https://api.example.com/api/snooze/abc')
+		expect(opts.method).toBe('GET')
+		expect(opts.headers['Authorization']).toBe('Bearer tok')
+	})
+
+	it('returns parsed JSON on success', async () => {
+		const ctx = makeCtx({ serverUrl: 'https://api.example.com', serverToken: 'tok' })
+		ctx.fetch.mockResolvedValue({ ok: true })
+		await ctx.serverHeartbeat()
+		const record = { id: 'abc', status: 'dismissed' }
+		ctx.fetch.mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue(record) })
+		expect(await ctx.serverGetSnooze('abc')).toEqual(record)
+	})
+
+	it('returns null on non-ok response without tripping circuit-breaker', async () => {
+		const ctx = makeCtx({ serverUrl: 'https://api.example.com', serverToken: 'tok' })
+		ctx.fetch.mockResolvedValue({ ok: true })
+		await ctx.serverHeartbeat()
+		ctx.fetch.mockResolvedValue({ ok: false, status: 404 })
+		expect(await ctx.serverGetSnooze('abc')).toBeNull()
+		expect(ctx.isServerAvailable()).toBe(true)
+	})
+
+	it('returns null on timeout without tripping circuit-breaker', async () => {
+		const ctx = makeCtx({ serverUrl: 'https://api.example.com', serverToken: 'tok' })
+		ctx.fetch.mockResolvedValue({ ok: true })
+		await ctx.serverHeartbeat()
+		ctx.fetch.mockRejectedValue(new Error('timeout'))
+		expect(await ctx.serverGetSnooze('abc')).toBeNull()
+		expect(ctx.isServerAvailable()).toBe(true)
+	})
+})
+
 // ─── isServerAvailable ───────────────────────────────────────────────────────
 
 describe('isServerAvailable', () => {
