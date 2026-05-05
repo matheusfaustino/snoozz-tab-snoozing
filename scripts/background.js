@@ -86,10 +86,11 @@ async function wakeMeUp(tabs) {
 	tabsToWakeUp = allowed;
 	if (tabsToWakeUp.length === 0) return;
 	bgLog(['Waking up tabs', tabsToWakeUp.map(t => t.id).join(', ')], ['', 'green'], 'yellow');
-	tabsToWakeUp.filter(t => !t.repeat).forEach(t => t.opened = now);
+	tabsToWakeUp.filter(t => !t.repeat).forEach(t => { t.opened = now; t.updated_at = new Date().toISOString() });
 	for (var s of tabsToWakeUp.filter(t => t.repeat)) {
 		var next = await calculateNextSnoozeTime(s.repeat);
 		s.wakeUpTime = next.valueOf();
+		s.updated_at = new Date().toISOString();
 	}
 	await saveTabs(tabs);
 

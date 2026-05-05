@@ -253,11 +253,12 @@ async function snoozeTab(snoozeTime, overrideTab) {
 		...activeTab.cookieStoreId ? {cookieStoreId: activeTab.cookieStoreId} : {},
 		wakeUpTime: snoozeTime === 'startup' ? dayjs().add(20, 'y').valueOf() : dayjs(snoozeTime).valueOf(),
 		timeCreated: dayjs().valueOf(),
+		updated_at: new Date().toISOString(),
 	}
 	if (snoozeTime === 'startup') sleepyTab.startUp = true;
 	await saveTab(sleepyTab);
 	chrome.runtime.sendMessage({logOptions: ['tab', sleepyTab, snoozeTime]});
-	var reg = {id: sleepyTab.id, url: sleepyTab.url, title: sleepyTab.title, fire_at: new Date(sleepyTab.wakeUpTime).toISOString(), status: 'snoozed', updated_at: new Date().toISOString()};
+	var reg = {id: sleepyTab.id, url: sleepyTab.url, title: sleepyTab.title, fire_at: new Date(sleepyTab.wakeUpTime).toISOString(), status: 'snoozed', updated_at: sleepyTab.updated_at};
 	if (typeof serverRegisterSnooze === 'function') serverRegisterSnooze(reg);
 	else chrome.runtime.sendMessage({registerSnooze: reg});
 	var tabId = activeTab.id || await getTabId(activeTab.url);
@@ -277,6 +278,7 @@ async function snoozeWindow(snoozeTime, isASelection) {
 		id: getRandomId(),
 		wakeUpTime: snoozeTime === 'startup' ? dayjs().add(20, 'y').valueOf() : dayjs(snoozeTime).valueOf(),
 		timeCreated: dayjs().valueOf(),
+		updated_at: new Date().toISOString(),
 		title: `${getTabCountLabel(validTabs)} from ${getSiteCountLabel(validTabs)}`,
 		...(validTabs.some(v => v.incognito)) ? {incognito: true} : {},
 	}
