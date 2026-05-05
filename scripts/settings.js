@@ -14,15 +14,26 @@ async function initialize() {
 	if (options.icons) document.querySelector('.nap-room img').src = `../icons/${options.icons}/nap-room.png`;
 
 	try {updateFormValues(options)} catch(e) {}
-	
+
 	addListeners();
 	await fetchHourFormat();
+	await checkServerUnavailableIndicator(options);
 
 	// calculateStorage();
 	// chrome.storage.onChanged.addListener(calculateStorage);
-	
+
 
 	if (getBrowser() === 'safari') chrome.runtime.sendMessage({wakeUp: true});
+}
+
+async function checkServerUnavailableIndicator(options) {
+	if (!options.serverUrl) return;
+	var stored = await new Promise(r => chrome.storage.local.get('serverUnavailableSince', r));
+	if (stored.serverUnavailableSince && Date.now() - stored.serverUnavailableSince > 15 * 60 * 1000) {
+		var s = document.getElementById('serverStatus');
+		s.textContent = 'Server unreachable for over 15 minutes';
+		s.className = 'server-status failed';
+	}
 }
 function highlightSetting(name, condition) {
 	var el = document.getElementById(name).closest('.input-container');

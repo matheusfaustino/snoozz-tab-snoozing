@@ -194,6 +194,17 @@ function sendToLogs([which, p1]) {
 	} catch (e) {console.log('logError', e, which, p1)}
 }
 
+var _unavailableSince = null;
+async function _trackServerAvailability() {
+	if (isServerAvailable()) {
+		_unavailableSince = null;
+		await new Promise(r => chrome.storage.local.set({serverUnavailableSince: null}, r));
+	} else if (!_unavailableSince) {
+		_unavailableSince = Date.now();
+		await new Promise(r => chrome.storage.local.set({serverUnavailableSince: _unavailableSince}, r));
+	}
+}
+
 async function syncWithServer() {
 	if (!isServerAvailable()) return;
 	var serverSnoozes = await serverGetAllSnoozes();
@@ -252,6 +263,7 @@ async function init() {
 	}
 	chrome.alarms.create('serverHeartbeat', { periodInMinutes: 5 })
 	await serverHeartbeat()
+	await _trackServerAvailability()
 	await syncWithServer()
 	await wakeUpTask();
 	await setUpContextMenus();
@@ -270,7 +282,7 @@ chrome.runtime.onInstalled.addListener(async details => {
 chrome.runtime.onStartup.addListener(init);
 chrome.alarms.onAlarm.addListener(async a => {
 	if (a.name === 'wakeUpTabs') await wakeUpTask()
-	if (a.name === 'serverHeartbeat') { await serverHeartbeat(); await syncWithServer() }
+	if (a.name === 'serverHeartbeat') { await serverHeartbeat(); await _trackServerAvailability(); await syncWithServer() }
 });
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {

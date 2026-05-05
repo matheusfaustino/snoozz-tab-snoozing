@@ -185,6 +185,40 @@ describe('init', () => {
 	})
 })
 
+// ─── server availability tracking ────────────────────────────────────────────
+
+describe('server availability tracking', () => {
+	it('writes serverUnavailableSince to storage when server is unavailable after init', async () => {
+		const ctx = makeCtx()
+		ctx.isServerAvailable = vi.fn().mockReturnValue(false)
+		await ctx.init()
+		const sets = ctx.chrome.storage.local.set.mock.calls
+		const call = sets.find(([d]) => 'serverUnavailableSince' in d)
+		expect(call).toBeDefined()
+		expect(call[0].serverUnavailableSince).toBeTruthy()
+	})
+
+	it('clears serverUnavailableSince when server is available after init', async () => {
+		const ctx = makeCtx()
+		ctx.isServerAvailable = vi.fn().mockReturnValue(true)
+		await ctx.init()
+		const sets = ctx.chrome.storage.local.set.mock.calls
+		const call = sets.find(([d]) => 'serverUnavailableSince' in d)
+		expect(call).toBeDefined()
+		expect(call[0].serverUnavailableSince).toBeNull()
+	})
+
+	it('does not overwrite serverUnavailableSince on repeated unavailability', async () => {
+		const ctx = makeCtx()
+		ctx.isServerAvailable = vi.fn().mockReturnValue(false)
+		await ctx.init()
+		ctx.chrome.storage.local.set.mockClear()
+		await ctx._trackServerAvailability()
+		const secondSets = ctx.chrome.storage.local.set.mock.calls.filter(([d]) => 'serverUnavailableSince' in d).length
+		expect(secondSets).toBe(0)
+	})
+})
+
 // ─── alarm handler — sync after heartbeat ────────────────────────────────────
 
 describe('alarm handler sync', () => {
