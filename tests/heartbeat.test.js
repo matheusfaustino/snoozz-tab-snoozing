@@ -99,8 +99,12 @@ function makeCtx(serverHeartbeatMock = vi.fn().mockResolvedValue(true)) {
 		dayjs:                  vi.fn().mockReturnValue({ subtract: () => ({ valueOf: () => 0 }), valueOf: () => 0 }),
 
 		// ── serverApi.js stubs ───────────────────────────────────────────────
-		serverHeartbeat:   serverHeartbeatMock,
-		isServerAvailable: vi.fn().mockReturnValue(false),
+		serverHeartbeat:      serverHeartbeatMock,
+		isServerAvailable:    vi.fn().mockReturnValue(false),
+		serverGetAllSnoozes:  vi.fn().mockResolvedValue([]),
+		serverRegisterSnooze: vi.fn().mockResolvedValue(null),
+		serverUpdateSnooze:   vi.fn().mockResolvedValue(null),
+		serverGetSnooze:      vi.fn().mockResolvedValue(null),
 
 		// ── Node built-ins ───────────────────────────────────────────────────
 		Promise,
@@ -166,5 +170,39 @@ describe('init', () => {
 		ctx.wakeUpTask = vi.fn().mockImplementation(async () => order.push('wakeUp'))
 		await ctx.init()
 		expect(order.indexOf('heartbeat')).toBeLessThan(order.indexOf('wakeUp'))
+	})
+
+	it('runs sync after heartbeat and before wakeUpTask on startup', async () => {
+		const order = []
+		const heartbeatMock = vi.fn().mockImplementation(async () => { order.push('heartbeat'); return true })
+		const ctx = makeCtx(heartbeatMock)
+		ctx.isServerAvailable = vi.fn().mockReturnValue(true)
+		ctx.serverGetAllSnoozes = vi.fn().mockImplementation(async () => { order.push('sync'); return [] })
+		ctx.wakeUpTask = vi.fn().mockImplementation(async () => order.push('wakeUp'))
+		await ctx.init()
+		expect(order.indexOf('heartbeat')).toBeLessThan(order.indexOf('sync'))
+		expect(order.indexOf('sync')).toBeLessThan(order.indexOf('wakeUp'))
+	})
+})
+
+// ─── alarm handler — sync after heartbeat ────────────────────────────────────
+
+describe('alarm handler sync', () => {
+	it('runs sync after heartbeat when serverHeartbeat alarm fires', async () => {
+		const order = []
+		const heartbeatMock = vi.fn().mockImplementation(async () => { order.push('heartbeat'); return true })
+		const ctx = makeCtx(heartbeatMock)
+		ctx.isServerAvailable = vi.fn().mockReturnValue(true)
+		ctx.serverGetAllSnoozes = vi.fn().mockImplementation(async () => { order.push('sync'); return [] })
+		await ctx._alarmHandlers[0]({ name: 'serverHeartbeat' })
+		expect(order.indexOf('heartbeat')).toBeLessThan(order.indexOf('sync'))
+	})
+
+	it('does not run sync for wakeUpTabs alarm', async () => {
+		const ctx = makeCtx()
+		ctx.isServerAvailable = vi.fn().mockReturnValue(true)
+		ctx.serverGetAllSnoozes = vi.fn().mockResolvedValue([])
+		await ctx._alarmHandlers[0]({ name: 'wakeUpTabs' })
+		expect(ctx.serverGetAllSnoozes).not.toHaveBeenCalled()
 	})
 })

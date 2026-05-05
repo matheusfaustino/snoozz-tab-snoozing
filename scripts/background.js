@@ -193,6 +193,56 @@ function sendToLogs([which, p1]) {
 	} catch (e) {console.log('logError', e, which, p1)}
 }
 
+async function syncWithServer() {
+	if (!isServerAvailable()) return;
+	var serverSnoozes = await serverGetAllSnoozes();
+	var localTabs = await getSnoozedTabs();
+	var changed = false;
+
+	for (var sr of serverSnoozes) {
+		var lr = localTabs.find(t => t.id === sr.id);
+		if (!lr) {
+			localTabs.push({
+				id: sr.id, url: sr.url, title: sr.title,
+				wakeUpTime: new Date(sr.fire_at).valueOf(),
+				timeCreated: new Date(sr.updated_at).valueOf(),
+				updated_at: sr.updated_at,
+				...sr.status !== 'snoozed' ? {opened: Date.now()} : {}
+			});
+			changed = true;
+		} else {
+			var serverNewer = sr.updated_at && (!lr.updated_at || sr.updated_at > lr.updated_at);
+			if (serverNewer) {
+				lr.wakeUpTime = new Date(sr.fire_at).valueOf();
+				lr.updated_at = sr.updated_at;
+				if (sr.status !== 'snoozed') lr.opened = lr.opened || Date.now();
+				else delete lr.opened;
+				changed = true;
+			} else if (lr.updated_at && (!sr.updated_at || lr.updated_at > sr.updated_at)) {
+				await serverUpdateSnooze(lr.id, {
+					url: lr.url, title: lr.title,
+					fire_at: new Date(lr.wakeUpTime).toISOString(),
+					status: lr.opened ? 'dismissed' : 'snoozed',
+					updated_at: lr.updated_at
+				});
+			}
+		}
+	}
+
+	for (var lr of localTabs) {
+		if (!serverSnoozes.find(s => s.id === lr.id)) {
+			await serverRegisterSnooze({
+				id: lr.id, url: lr.url, title: lr.title,
+				fire_at: new Date(lr.wakeUpTime).toISOString(),
+				status: lr.opened ? 'dismissed' : 'snoozed',
+				updated_at: lr.updated_at || new Date().toISOString()
+			});
+		}
+	}
+
+	if (changed) await saveTabs(localTabs);
+}
+
 async function init() {
 	var allTabs = await getSnoozedTabs();
 	if (allTabs && allTabs.length && allTabs.some(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened)) {
@@ -201,6 +251,7 @@ async function init() {
 	}
 	chrome.alarms.create('serverHeartbeat', { periodInMinutes: 5 })
 	await serverHeartbeat()
+	await syncWithServer()
 	await wakeUpTask();
 	await setUpContextMenus();
 }
@@ -218,7 +269,7 @@ chrome.runtime.onInstalled.addListener(async details => {
 chrome.runtime.onStartup.addListener(init);
 chrome.alarms.onAlarm.addListener(async a => {
 	if (a.name === 'wakeUpTabs') await wakeUpTask()
-	if (a.name === 'serverHeartbeat') await serverHeartbeat()
+	if (a.name === 'serverHeartbeat') { await serverHeartbeat(); await syncWithServer() }
 });
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {
