@@ -136,7 +136,7 @@ async function snoozeInBackground(item, tab) {
 	var c = await getChoices(item.menuItemId);
 	
 	var isHref = item.linkUrl && item.linkUrl.length;
-	var url = isHref ? item.linkUrl : item.pageUrl;
+	var url = isHref ? item.linkUrl : (item.pageUrl || (tab && tab.url));
 	if(!isValid({url})) return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The link you are trying to snooze is invalid.', true);
 
 	var snoozeTime = c && c.time;
