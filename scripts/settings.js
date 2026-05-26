@@ -212,7 +212,7 @@ async function changeIcons(name) {
 }
 
 async function exportTabs() {
-	var tabs = await getSnoozedTabs();
+	var tabs = (await getSnoozedTabs()).map(t => {var c = Object.assign({}, t); delete c._id; delete c._rev; return c;});
 	var now = dayjs();
 	var element = document.createElement('a');
 	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(tabs)));

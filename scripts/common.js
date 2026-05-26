@@ -9,7 +9,7 @@ function getBrowser() {
 /*	GET 	*/
 async function getSnoozedTabs(ids) {
 	var result = await localDB.allDocs({include_docs: true});
-	var tabs = result.rows.map(r => r.doc);
+	var tabs = result.rows.map(r => r.doc).filter(d => d && d.id);
 	if (!ids || (ids.length && ids.length === 0)) return tabs;
 	var found = tabs.filter(s => s.id && (ids.length ? ids.includes(s.id) : ids === s.id));
 	return found.length === 1 ? found[0] : found;
