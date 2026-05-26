@@ -1,9 +1,8 @@
 {
-	"name": "Snoozz - Snooze Tabs & Windows homelab version",
+	"name": "Snoozz - Snooze Tabs Homelab version",
 	"short_name": "Snoozz homelab",
 	"description": "Declutter your browser by snoozing tabs and windows until you actually need them.",
-	"version": "2.6.1",
-	
+	"version": "2.7",
 	"icons": {
 		"128": "icons/ext-icon-128.png",
 		"48": "icons/ext-icon-48.png",
@@ -11,30 +10,44 @@
 		"16": "icons/ext-icon-16.png"
 	},
 	"manifest_version": 2,
-
+	"browser_specific_settings": {
+		"gecko": {
+			"data_collection_permissions": {
+				"required": ["none"]
+			}
+		}
+	},
 	"browser_action": {
 		"default_popup": "html/popup.html"
 	},
-	"author": "Rohan Bhansali",
+	"author": "Matheus Faustino",
+	"forked-from-author": "Rohan Bhansali",
 	"options_ui": {
 		"page": "html/settings.html",
 		"open_in_tab": true
 	},
-	
 	"background": {
-		"scripts": ["scripts/dayjs.min.js", "scripts/pouchdb.js", "scripts/common.js", "scripts/background.js"]
+		"scripts": [
+			"scripts/dayjs.min.js",
+			"scripts/pouchdb.js",
+			"scripts/common.js",
+			"scripts/background.js"
+		]
 	},
 	"offline_enabled": true,
-
-	"permissions": ["alarms", "contextMenus", "contextualIdentities", "cookies", "idle", "notifications", "storage", "tabs"],
-
-	"web_accessible_resources": ["html/settings.html"],
-
-	"content_scripts": [{
-		"matches": ["https://*.snoozz.me/*"],
-		"js": ["scripts/snoozz.me.js"]
-	}],
-
+	"permissions": [
+		"alarms",
+		"contextMenus",
+		"contextualIdentities",
+		"cookies",
+		"idle",
+		"notifications",
+		"storage",
+		"tabs"
+	],
+	"web_accessible_resources": [
+		"html/settings.html"
+	],
 	"commands": {
 		"nap-room": {
 			"description": "Show me my sleeping tabs"
