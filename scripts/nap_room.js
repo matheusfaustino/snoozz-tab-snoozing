@@ -8,13 +8,6 @@ async function init() {
 
 	observer = lozad();
 
-	chrome.storage.onChanged.addListener(async changes => {
-		if (changes.snoozed) {
-			CACHED_TABS = changes.snoozed.newValue;
-			updateTabs();
-		}
-	});
-
 	chrome.runtime.onMessage.addListener(async msg => {
 		if (msg.updateDash) {
 			CACHED_TABS = await getSnoozedTabs();
