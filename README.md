@@ -29,6 +29,10 @@
 
 -------------
 
+> **Homelab fork notice.** This is a fork of [Snoozz by Rohan Bhansali](https://github.com/rohanb10/snoozz-tab-snoozing), modified by Matheus Faustino starting 2026. Adds self-hosted CouchDB sync across devices, removes all upstream telemetry (the stats endpoint and the uninstall ping), and drops the snoozz.me content-script integration. Same license as upstream: **GPL-3.0**.
+
+-------------
+
 
 A Web Extension to *snoozz* tabs and windows now and have them reopen automatically later.
 
