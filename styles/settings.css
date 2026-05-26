@@ -302,6 +302,18 @@ p.storage-text, p.storage-low, p.storage-full {
 .couchdb-input:focus {
 	border-bottom-color: #f3b845;
 }
+.sync-status {
+	font-size: .85rem;
+	padding: .2em .6em;
+	border-radius: .25em;
+	font-weight: bold;
+}
+.sync-status--inactive   { color: #888; }
+.sync-status--connecting { color: #888; }
+.sync-status--syncing    { color: #f3b845; }
+.sync-status--connected  { color: #4caf50; }
+.sync-status--retrying   { color: #ff9800; }
+.sync-status--error      { color: #e53935; }
 #version {
 	margin-top: 1.5em;
 }

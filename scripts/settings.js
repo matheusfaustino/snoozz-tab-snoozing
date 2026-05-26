@@ -20,6 +20,9 @@ async function initialize() {
 
 	// calculateStorage();
 	// chrome.storage.onChanged.addListener(calculateStorage);
+
+	updateSyncStatus();
+	chrome.storage.onChanged.addListener(changes => { if (changes.snoozzSyncStatus) updateSyncStatus(changes.snoozzSyncStatus.newValue); });
 	
 
 	if (getBrowser() === 'safari') chrome.runtime.sendMessage({wakeUp: true});
@@ -254,6 +257,26 @@ async function importTabs(e) {
 		document.querySelector('body > .import-fail').classList.add('toast');
 		setTimeout(_ => document.querySelector('body > .import-fail').remove('toast'), 4000)
 	}
+}
+
+var SYNC_STATUS_LABELS = {
+	inactive:   'not configured',
+	connecting: 'connecting...',
+	syncing:    'syncing',
+	connected:  'connected',
+	retrying:   'reconnecting...',
+	error:      'connection error'
+};
+
+async function updateSyncStatus(status) {
+	if (!status) {
+		var p = await new Promise(r => chrome.storage.local.get('snoozzSyncStatus', r));
+		status = p.snoozzSyncStatus || 'inactive';
+	}
+	var el = document.getElementById('couchdb-sync-status');
+	if (!el) return;
+	el.textContent = SYNC_STATUS_LABELS[status] || status;
+	el.className = 'sync-status sync-status--' + status;
 }
 
 function fillAbout() {

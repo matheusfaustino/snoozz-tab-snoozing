@@ -81,17 +81,21 @@ async function setNextAlarm(tabs) {
 async function wakeMeUp(tabs) {
 	var now = dayjs().valueOf();
 	var wakingUp = t => !t.paused && !t.opened && (t.url || (t.tabs && t.tabs.length && t.tabs.length > 0)) && t.wakeUpTime && t.wakeUpTime <= now;
-	var tabsToWakeUp = tabs.filter(wakingUp);
-	if (tabsToWakeUp.length === 0) return;
-	bgLog(['Waking up tabs', tabsToWakeUp.map(t => t.id).join(', ')], ['', 'green'], 'yellow');
-	tabs.filter(wakingUp).filter(t => !t.repeat).forEach(t => t.opened = now);
-	for (var s of tabs.filter(wakingUp).filter(t => t.repeat)) {
+	if (!tabs.some(wakingUp)) return;
+	// Re-read from PouchDB to pick up any state pulled from remote since tabs was loaded,
+	// preventing a tab from being opened twice if another device already woke it.
+	var freshTabs = await getSnoozedTabs();
+	var toOpen = freshTabs.filter(wakingUp);
+	if (toOpen.length === 0) return;
+	bgLog(['Waking up tabs', toOpen.map(t => t.id).join(', ')], ['', 'green'], 'yellow');
+	freshTabs.filter(wakingUp).filter(t => !t.repeat).forEach(t => t.opened = now);
+	for (var s of freshTabs.filter(wakingUp).filter(t => t.repeat)) {
 		var next = await calculateNextSnoozeTime(s.repeat);
 		s.wakeUpTime = next.valueOf();
 	}
-	await saveTabs(tabs);
+	await saveTabs(freshTabs);
 
-	for (var s of tabsToWakeUp) s.tabs ? (s.selection ? await openSelection(s, true) : await openWindow(s, true)) : await openTab(s, null, true);
+	for (var s of toOpen) s.tabs ? (s.selection ? await openSelection(s, true) : await openWindow(s, true)) : await openTab(s, null, true);
 }
 
 async function setUpContextMenus(cachedMenus) {
@@ -182,16 +186,19 @@ async function resolveConflictRemoteWins(docId) {
 	await localDB.bulkDocs(toDelete);
 }
 
+var setSyncStatus = s => chrome.storage.local.set({snoozzSyncStatus: s});
+
 async function setupCouchSync() {
 	if (_syncHandler) { _syncHandler.cancel(); _syncHandler = null; }
 	var cfg = await getOptions('couchdb');
-	if (!cfg || !cfg.url || !cfg.database) return;
+	if (!cfg || !cfg.url || !cfg.database) { setSyncStatus('inactive'); return; }
 	var url = cfg.url.replace(/\/$/, '');
 	var proto = url.indexOf('https://') === 0 ? 'https://' : 'http://';
 	var host = url.replace(/^https?:\/\//, '');
 	var auth = cfg.username ? cfg.username + ':' + encodeURIComponent(cfg.password || '') + '@' : '';
 	var remoteUrl = proto + auth + host + '/' + cfg.database;
 	var remoteDB = new PouchDB(remoteUrl);
+	setSyncStatus('connecting');
 	_syncHandler = PouchDB.sync(localDB, remoteDB, {live: true, retry: true})
 		.on('change', async info => {
 			if (info.direction !== 'pull') return;
@@ -202,7 +209,9 @@ async function setupCouchSync() {
 				} catch(e) {}
 			}
 		})
-		.on('error', e => bgLog(['CouchDB sync error:', e.message || e], ['', 'red'], 'red'));
+		.on('active', _ => setSyncStatus('syncing'))
+		.on('paused', err => setSyncStatus(err ? 'retrying' : 'connected'))
+		.on('error', e => { setSyncStatus('error'); bgLog(['CouchDB sync error:', e.message || e], ['', 'red'], 'red'); });
 	bgLog(['CouchDB sync started:', remoteUrl.replace(/:([^@]+)@/, ':***@')], ['', 'green'], 'green');
 }
 
