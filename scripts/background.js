@@ -1,9 +1,5 @@
 chrome.runtime.onMessage.addListener(async msg => {
 	if (msg.logOptions) sendToLogs(msg.logOptions);
-	if (msg.poll && (navigator && navigator.onLine)) {
-		var p = await getOptions('polling');
-		if (p !== 'off') poll(msg.poll);
-	}
 	if (msg.wakeUp) await wakeUpTask();
 	if (msg.close) setTimeout(_ => {
 		if (msg.tabId) chrome.tabs.remove(msg.tabId);
@@ -246,7 +242,6 @@ async function init() {
 
 chrome.runtime.onInstalled.addListener(async details => {
 	setUpExtension();
-	if (chrome.runtime.setUninstallURL) chrome.runtime.setUninstallURL('https://snoozz.me/bye');
 	if (details && details.reason && details.reason == 'install') await new Promise(r => chrome.tabs.create({url: 'https://snoozz.me/hello', active: true}, r));
 	if (details && details.reason && details.reason == 'update' && details.previousVersion && details.previousVersion != chrome.runtime.getManifest().version) {
 		if (chrome.runtime.getManifest().version.search(/^\d{1,3}(\.\d{1,3}){1,2}$/) !== 0) return;		// skip if minor version

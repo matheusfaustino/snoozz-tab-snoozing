@@ -55,7 +55,7 @@ function updateFormValues(storage) {
 	['weekend', 'monday', 'week', 'month'].forEach(po => {
 		document.querySelector(`#popup_${po}`).value = storage.popup && storage.popup[po] ? storage.popup[po] : (storage.timeOfDay || 'morning');
 	});
-	['history', 'icons', 'theme', 'notifications', 'badge', 'closeDelay', 'hourFormat', 'polling', 'weekStart'].forEach(o => {
+	['history', 'icons', 'theme', 'notifications', 'badge', 'closeDelay', 'hourFormat', 'weekStart'].forEach(o => {
 		if (storage[o] !== undefined && document.querySelector(`#${o} option[value="${storage[o]}"]`)) {
 			document.getElementById(o).value = storage[o].toString()
 			document.getElementById(o).setAttribute('data-orig-value', storage[o]);

@@ -526,7 +526,6 @@ async function snooze(time, choice) {
 }
 
 async function displayPreviewAnimation(choice, time, text = 'Snoozing') {
-	await chrome.runtime.sendMessage({poll: `${choice.id}${time}`});
 	document.body.style.pointerEvents = 'none';
 	choice.classList.add('focused');
 	var preview = document.getElementById('preview');

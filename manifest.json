@@ -22,7 +22,7 @@
 	},
 	
 	"background": {
-		"scripts": ["scripts/dayjs.min.js", "scripts/pouchdb.min.js", "scripts/common.js", "scripts/poll.js", "scripts/background.js"]
+		"scripts": ["scripts/dayjs.min.js", "scripts/pouchdb.min.js", "scripts/common.js", "scripts/background.js"]
 	},
 	"offline_enabled": true,
 

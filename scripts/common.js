@@ -602,7 +602,6 @@ const DEFAULT_OPTIONS = {
 	history: 30,
 	badge: 'today',
 	closeDelay: 1000,
-	polling: 'on',
 	napCollapsed: [],
 	weekStart: 0,
 	popup: {weekend: 'morning', monday: 'morning', week: 'morning', month: 'morning'},
