@@ -1,4 +1,11 @@
 {
+  "scripts": {
+    "vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.min.js','scripts/pouchdb.min.js')\"",
+    "postinstall": "npm run vendor",
+    "start:firefox": "web-ext run",
+    "build:firefox": "web-ext build --overwrite-dest",
+    "lint:firefox": "web-ext lint"
+  },
   "devDependencies": {
     "csso": "^5.0.5",
     "csso-cli": "^4.0.1",
@@ -7,6 +14,7 @@
     "uglify-js": "^3.17.4"
   },
   "dependencies": {
-    "pouchdb": "^9.0.0"
+    "pouchdb": "^9.0.0",
+    "web-ext": "^10.2.0"
   }
 }
