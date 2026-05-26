@@ -1,6 +1,6 @@
 {
   "scripts": {
-    "vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.min.js','scripts/pouchdb.min.js')\"",
+    "vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.js','scripts/pouchdb.js')\"",
     "postinstall": "npm run vendor",
     "start:firefox": "web-ext run",
     "build:firefox": "web-ext build --overwrite-dest",
