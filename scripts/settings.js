@@ -59,12 +59,19 @@ function updateFormValues(storage) {
 		}
 	});
 	if (storage.contextMenu && storage.contextMenu.length) storage.contextMenu.forEach(o => document.getElementById(o).checked = true);
+	if (storage.couchdb) {
+		['url', 'username', 'password', 'database'].forEach(k => {
+			var el = document.getElementById('couchdb_' + k);
+			if (el) el.value = storage.couchdb[k] || '';
+		});
+	}
 	resizeDropdowns();
 }
 
 function addListeners() {
 	document.querySelectorAll('select').forEach(s => s.addEventListener('change', save));
-	document.querySelectorAll('#contextMenu input').forEach(c => c.addEventListener('change', e => save))
+	document.querySelectorAll('#contextMenu input').forEach(c => c.addEventListener('change', e => save));
+	document.querySelectorAll('.couchdb-input').forEach(i => i.addEventListener('change', save));
 
 	document.querySelector('#shortcut .btn').addEventListener('click', toggleShortcuts);
 	document.querySelector('#shortcut .btn').onkeyup = e => {if (e.which === 13) toggleShortcuts()}
@@ -126,6 +133,11 @@ Would you like to update ${tabsToChange.length > 1 ? 'them' : 'it'} to snooze ti
 	// handle morning evening time separately
 	['morning', 'evening'].forEach(o => options[o] = [parseInt(document.getElementById(`${o}_h`).value), parseInt(document.getElementById(`${o}_m`).value)]);
 	options.contextMenu = Array.from(document.querySelectorAll('#contextMenu input:checked')).map(c => c.id);
+	options.couchdb = {};
+	['url', 'username', 'password', 'database'].forEach(k => {
+		var el = document.getElementById('couchdb_' + k);
+		if (el) options.couchdb[k] = el.value.trim();
+	});
 	await saveOptions(options);
 	await setTheme();
 	await fetchHourFormat();

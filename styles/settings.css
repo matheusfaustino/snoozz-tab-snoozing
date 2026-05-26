@@ -286,6 +286,22 @@ p.storage-text, p.storage-low, p.storage-full {
 	text-decoration: underline;
 	opacity: .75;
 }
+.couchdb-input {
+	background-color: inherit;
+	border: none;
+	border-bottom: 2px solid var(--color);
+	color: var(--color);
+	font-size: .9rem;
+	outline: none;
+	padding: .25em 0;
+	width: 16em;
+}
+.couchdb-input::placeholder {
+	opacity: .35;
+}
+.couchdb-input:focus {
+	border-bottom-color: #f3b845;
+}
 #version {
 	margin-top: 1.5em;
 }

@@ -318,6 +318,34 @@
 				<div tabindex="0" id="export" class="full-btn"><div>Export</div></div>
 			</div>
 		</div>
+		<h2 class="center"><span>CouchDB</span></h2><br>
+		<div class="input-container flex">
+			<div>
+				<h4>CouchDB URL</h4>
+				<p>The base URL of your CouchDB server.</p>
+			</div>
+			<input type="url" id="couchdb_url" class="couchdb-input" placeholder="http://localhost:5984" autocomplete="off" spellcheck="false">
+		</div>
+		<div class="input-container flex">
+			<div>
+				<h4>Username</h4>
+				<p>CouchDB admin or user account.</p>
+			</div>
+			<input type="text" id="couchdb_username" class="couchdb-input" placeholder="admin" autocomplete="off" spellcheck="false">
+		</div>
+		<div class="input-container flex">
+			<div>
+				<h4>Password</h4>
+			</div>
+			<input type="password" id="couchdb_password" class="couchdb-input" autocomplete="new-password">
+		</div>
+		<div class="input-container flex">
+			<div>
+				<h4>Database</h4>
+				<p>Name of the database to sync with.</p>
+			</div>
+			<input type="text" id="couchdb_database" class="couchdb-input" placeholder="snoozz" autocomplete="off" spellcheck="false">
+		</div>
 		<div class="reset-container center">
 			<a tabindex="0" id="reset">reset settings to default</a>
 		</div>
