@@ -2,6 +2,11 @@
   "devDependencies": {
     "csso": "^5.0.5",
     "csso-cli": "^4.0.1",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.3",
     "uglify-js": "^3.17.4"
+  },
+  "dependencies": {
+    "pouchdb": "^9.0.0"
   }
 }

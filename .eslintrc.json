@@ -1,0 +1,19 @@
+{
+  "env": {
+    "browser": true,
+    "es6": true,
+    "webextensions": true
+  },
+  "parserOptions": {
+    "ecmaVersion": 2020
+  },
+  "rules": {
+    "no-var": "off",
+    "prefer-const": "off",
+    "no-unused-vars": "warn",
+    "no-undef": "warn",
+    "semi": ["error", "always"],
+    "eqeqeq": ["warn", "always"],
+    "no-console": "off"
+  }
+}
