@@ -16,12 +16,19 @@ chrome.storage.onChanged.addListener(async changes => {
 		await setUpContextMenus(changes.snoozedOptions.newValue.contextMenu);
 		updateBadge(null, changes.snoozedOptions.newValue.badge);
 		if (changes.snoozedOptions.oldValue && changes.snoozedOptions.newValue.history !== changes.snoozedOptions.oldValue.history) await wakeUpTask();
-	}
-	if (changes.snoozed) {
-		await updateBadge(changes.snoozed.newValue);
-		await wakeUpTask(changes.snoozed.newValue);
+		var oldCouchdb = changes.snoozedOptions.oldValue && changes.snoozedOptions.oldValue.couchdb;
+		var newCouchdb = changes.snoozedOptions.newValue.couchdb;
+		if (JSON.stringify(oldCouchdb) !== JSON.stringify(newCouchdb)) await setupCouchSync();
 	}
 });
+
+localDB.changes({live: true, since: 'now', include_docs: false})
+	.on('change', async _ => {
+		var tabs = await getSnoozedTabs();
+		await updateBadge(tabs);
+		await wakeUpTask(tabs);
+		try { chrome.runtime.sendMessage({updateDash: true}); } catch(e) {}
+	});
 
 if (chrome.notifications) chrome.notifications.onClicked.addListener(async id => {
 	await chrome.notifications.clear(id)
@@ -166,6 +173,39 @@ async function cleanUpHistory(tabs) {
 	await saveTabs(tabs.filter(t => !tabsToDelete.includes(t)));
 }
 
+var _syncHandler = null;
+
+async function resolveConflictRemoteWins(docId) {
+	var doc = await localDB.get(docId, {conflicts: true});
+	if (!doc._conflicts || !doc._conflicts.length) return;
+	var toDelete = doc._conflicts.map(rev => ({_id: docId, _rev: rev, _deleted: true}));
+	await localDB.bulkDocs(toDelete);
+}
+
+async function setupCouchSync() {
+	if (_syncHandler) { _syncHandler.cancel(); _syncHandler = null; }
+	var cfg = await getOptions('couchdb');
+	if (!cfg || !cfg.url || !cfg.database) return;
+	var url = cfg.url.replace(/\/$/, '');
+	var proto = url.indexOf('https://') === 0 ? 'https://' : 'http://';
+	var host = url.replace(/^https?:\/\//, '');
+	var auth = cfg.username ? cfg.username + ':' + encodeURIComponent(cfg.password || '') + '@' : '';
+	var remoteUrl = proto + auth + host + '/' + cfg.database;
+	var remoteDB = new PouchDB(remoteUrl);
+	_syncHandler = PouchDB.sync(localDB, remoteDB, {live: true, retry: true})
+		.on('change', async info => {
+			if (info.direction !== 'pull') return;
+			for (var doc of info.change.docs) {
+				try {
+					var d = await localDB.get(doc._id, {conflicts: true});
+					if (d._conflicts && d._conflicts.length) await resolveConflictRemoteWins(doc._id);
+				} catch(e) {}
+			}
+		})
+		.on('error', e => bgLog(['CouchDB sync error:', e.message || e], ['', 'red'], 'red'));
+	bgLog(['CouchDB sync started:', remoteUrl.replace(/:([^@]+)@/, ':***@')], ['', 'green'], 'green');
+}
+
 async function setUpExtension() {
 	var snoozed = await getSnoozedTabs();
 	if (!snoozed || !snoozed.length || snoozed.length === 0) await saveTabs([]);
@@ -173,6 +213,7 @@ async function setUpExtension() {
 	options = Object.assign(DEFAULT_OPTIONS, options);
 	options = upgradeSettings(options);
 	await saveOptions(options);
+	await setupCouchSync();
 	await init();
 }
 function sendToLogs([which, p1]) {
