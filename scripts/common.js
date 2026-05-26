@@ -1,4 +1,5 @@
 var colours = window.gradientSteps ? gradientSteps('#F3B845', '#DF4E76', 100) : [];
+var localDB = typeof PouchDB !== 'undefined' ? new PouchDB('snoozz_tabs') : null;
 function getBrowser() {
 	if (!!navigator.userAgent.match(/safari/i) && !navigator.userAgent.match(/chrome/i) && typeof document.body.style.webkitFilter !== 'undefined') return 'safari';
 	if (!!window.sidebar) return 'firefox';
@@ -7,10 +8,10 @@ function getBrowser() {
 /*	ASYNCHRONOUS FUNCTIONS	*/
 /*	GET 	*/
 async function getSnoozedTabs(ids) {
-	var p = await new Promise(r => chrome.storage.local.get('snoozed', r));
-	if (!p.snoozed) return [];
-	if (!ids || (ids.length && ids.length === 0)) return p.snoozed;
-	var found = p.snoozed.filter(s => s.id && (ids.length ? ids.includes(s.id) : ids === s.id));
+	var result = await localDB.allDocs({include_docs: true});
+	var tabs = result.rows.map(r => r.doc);
+	if (!ids || (ids.length && ids.length === 0)) return tabs;
+	var found = tabs.filter(s => s.id && (ids.length ? ids.includes(s.id) : ids === s.id));
 	return found.length === 1 ? found[0] : found;
 }
 async function getOptions(keys) {
@@ -75,17 +76,27 @@ async function saveOptions(o) {
 }
 async function saveTab(t) {
 	if (!t || !t.id) return;
-	var tabs = await getSnoozedTabs();
-	if (tabs.some(tab => tab.id === t.id)) {
-		tabs[tabs.findIndex(tab => tab.id === t.id)] = t;
-	} else {
-		tabs.push(t);
+	var doc = Object.assign({}, t, {_id: t.id});
+	if (!doc._rev) {
+		try { var existing = await localDB.get(t.id); doc._rev = existing._rev; } catch(e) {}
 	}
-	await saveTabs(tabs);
+	await localDB.put(doc);
 }
 async function saveTabs(tabs) {
 	if (!tabs) return;
-	return new Promise(r => chrome.storage.local.set({'snoozed': tabs}, r));
+	var existing = await localDB.allDocs({include_docs: false});
+	var revMap = {};
+	existing.rows.forEach(r => { revMap[r.id] = r.value.rev; });
+	var tabIds = new Set(tabs.map(t => t.id));
+	var toDelete = existing.rows
+		.filter(r => !tabIds.has(r.id))
+		.map(r => ({_id: r.id, _rev: r.value.rev, _deleted: true}));
+	var toUpsert = tabs.map(t => {
+		var doc = Object.assign({}, t, {_id: t.id});
+		if (!doc._rev && revMap[t.id]) doc._rev = revMap[t.id];
+		return doc;
+	});
+	await localDB.bulkDocs([...toDelete, ...toUpsert]);
 }
 /*	CREATE 	*/
 async function createAlarm(when, willWakeUpATab) {
