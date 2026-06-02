@@ -124,8 +124,8 @@
 				<p>You may close the popup at any time. Changes will always be saved.</p>
 			</div>
 			<div class="select-wrapper"><select class="direct" id="closeDelay">
-				<option value="1">0 seconds</option>
-				<option value="1000" selected>1 second</option>
+				<option value="1" selected>0 seconds</option>
+				<option value="1000">1 second</option>
 				<option value="2000">2 seconds</option>
 			</select></div>
 		</div>
@@ -171,6 +171,66 @@
 				<option value="all">All Snoozed Tabs</option>
 			</select></div>
 		</div>
+		<div class="input-container" id="popup-choices">
+			<h4>Popup Choices</h4>
+			<p>Enable, reorder, or add custom snooze choices for the popup. Built-in choices can be toggled off but not deleted.</p>
+			<div id="choice-list"></div>
+			<div id="add-choice-area">
+				<div tabindex="0" class="full-btn" id="add-choice-btn"><div>+ Add Custom Choice</div></div>
+				<div id="add-choice-form" class="hidden">
+					<div class="add-choice-row">
+						<input type="text" id="new-choice-icon" placeholder="🍴" maxlength="4" style="width:3em;text-align:center">
+					<input type="text" id="new-choice-label" placeholder="Label (e.g. Lunch Break)" maxlength="30">
+					</div>
+					<div class="add-choice-row">
+						<select id="new-choice-type">
+							<option value="fixed-today">Fixed time — Today</option>
+							<option value="fixed-tomorrow">Fixed time — Tomorrow</option>
+							<option value="relative">In X hours / days / weeks</option>
+							<option value="morning-today">This Morning</option>
+							<option value="morning-tomorrow">Tomorrow Morning</option>
+							<option value="evening-today">This Evening</option>
+							<option value="evening-tomorrow">Tomorrow Evening</option>
+							<option value="weekday">Next weekday</option>
+						</select>
+					</div>
+					<div id="params-fixed" class="add-choice-params">
+						<span>Time:</span>
+						<input type="number" id="new-fixed-hour" min="0" max="23" value="9" style="width:3.5em">
+						<span>:</span>
+						<input type="number" id="new-fixed-minute" min="0" max="59" value="0" style="width:3.5em">
+					</div>
+					<div id="params-relative" class="add-choice-params hidden">
+						<input type="number" id="new-rel-amount" min="1" max="99" value="2" style="width:3.5em">
+						<select id="new-rel-unit">
+							<option value="hour">Hours</option>
+							<option value="day">Days</option>
+							<option value="week">Weeks</option>
+							<option value="month">Months</option>
+						</select>
+					</div>
+					<div id="params-weekday" class="add-choice-params hidden">
+						<select id="new-weekday">
+							<option value="0">Sunday</option>
+							<option value="1">Monday</option>
+							<option value="2">Tuesday</option>
+							<option value="3">Wednesday</option>
+							<option value="4">Thursday</option>
+							<option value="5">Friday</option>
+							<option value="6">Saturday</option>
+						</select>
+						<select id="new-weekday-modifier">
+							<option value="morning">Morning</option>
+							<option value="evening">Evening</option>
+							<option value="now">Current Time</option>
+						</select>
+					</div>
+					<div class="add-choice-row add-choice-actions">
+						<div tabindex="0" class="full-btn" id="save-new-choice"><div>Add</div></div>
+					</div>
+				</div>
+			</div>
+		</div>
 		<div class="input-container flex" id="right-click">
 			<div>
 				<h4>Snoozz tabs using the right-click (context) menu</h4>
@@ -179,52 +239,7 @@
 			</div>
 			<div tabindex="0" class="btn"><div></div></div>
 			<div id="contextMenu" class="choice-list">
-				<div><input type="checkbox" id="startup"><label for="startup"><span>On Browser Launch</span></label></div>
-				<div><input type="checkbox" id="in-an-hour"><label for="in-an-hour"><span>In One Hour</span></label></div>
-				<div><input type="checkbox" id="today-morning"><label for="today-morning"><span>This Morning</span></label></div>
-				<div><input type="checkbox" id="today-evening"><label for="today-evening"><span>This Evening</span></label></div>
-				<div><input type="checkbox" id="tom-morning"><label for="tom-morning"><span>Tomorrow Morning</span></label></div>
-				<div><input type="checkbox" id="tom-evening"><label for="tom-evening"><span>Tomorrow Evening</span></label></div>
-				<div><input type="checkbox" id="weekend"><label for="weekend">
-					<span>Weekend</span>
-					<div class="select-wrapper">
-						<select class="popup" id="popup_weekend">
-							<option value="morning">Morning</option>
-							<option value="evening">Evening</option>
-							<option value="now">Current Time</option>
-						</select>
-					</div>
-				</label></div>
-				<div><input type="checkbox" id="monday"><label for="monday">
-					<span>Next Monday</span>
-					<div class="select-wrapper">
-						<select class="popup" id="popup_monday">
-							<option value="morning">Morning</option>
-							<option value="evening">Evening</option>
-							<option value="now">Current Time</option>
-						</select>
-					</div>
-				</label></div>
-				<div><input type="checkbox" id="week"><label for="week">
-					<span>Next Week</span>
-					<div class="select-wrapper">
-						<select class="popup" id="popup_week">
-							<option value="morning">Morning</option>
-							<option value="evening">Evening</option>
-							<option value="now">Current Time</option>
-						</select>
-					</div>
-				</label></div>
-				<div><input type="checkbox" id="month"><label for="month">
-					<span>Next Month</span>
-					<div class="select-wrapper">
-						<select class="popup" id="popup_month">
-							<option value="morning">Morning</option>
-							<option value="evening">Evening</option>
-							<option value="now">Current Time</option>
-						</select>
-					</div>
-				</label></div>
+				<!-- dynamically populated by settings.js -->
 			</div>
 		</div>
 		<div class="input-container flex" id="shortcut">

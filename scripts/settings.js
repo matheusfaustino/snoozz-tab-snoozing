@@ -52,16 +52,15 @@ function updateFormValues(storage) {
 		document.getElementById(`${o}_h`).value = storage[o][0];
 		document.getElementById(`${o}_m`).value = storage[o][1];
 	});
-	['weekend', 'monday', 'week', 'month'].forEach(po => {
-		document.querySelector(`#popup_${po}`).value = storage.popup && storage.popup[po] ? storage.popup[po] : (storage.timeOfDay || 'morning');
-	});
 	['history', 'icons', 'theme', 'notifications', 'badge', 'closeDelay', 'hourFormat', 'weekStart'].forEach(o => {
 		if (storage[o] !== undefined && document.querySelector(`#${o} option[value="${storage[o]}"]`)) {
-			document.getElementById(o).value = storage[o].toString()
+			document.getElementById(o).value = storage[o].toString();
 			document.getElementById(o).setAttribute('data-orig-value', storage[o]);
 		}
 	});
-	if (storage.contextMenu && storage.contextMenu.length) storage.contextMenu.forEach(o => document.getElementById(o).checked = true);
+	var choices = (storage.choiceConfig && storage.choiceConfig.length) ? storage.choiceConfig : DEFAULT_CHOICES;
+	renderChoiceList(choices);
+	renderContextMenu(choices, storage.contextMenu || DEFAULT_OPTIONS.contextMenu);
 	if (storage.couchdb) {
 		['url', 'username', 'password', 'database'].forEach(k => {
 			var el = document.getElementById('couchdb_' + k);
@@ -71,10 +70,233 @@ function updateFormValues(storage) {
 	resizeDropdowns();
 }
 
+function renderChoiceList(choices) {
+	var list = document.getElementById('choice-list');
+	list.innerHTML = '';
+	choices.forEach((c, idx) => {
+		var row = document.createElement('div');
+		row.className = 'choice-item';
+		row.setAttribute('data-id', c.id);
+
+		var upBtn = Object.assign(document.createElement('button'), {className: 'choice-move', title: 'Move up', innerText: '▲'});
+		upBtn.disabled = idx === 0;
+		upBtn.addEventListener('click', _ => moveChoice(c.id, -1));
+
+		var downBtn = Object.assign(document.createElement('button'), {className: 'choice-move', title: 'Move down', innerText: '▼'});
+		downBtn.disabled = idx === choices.length - 1;
+		downBtn.addEventListener('click', _ => moveChoice(c.id, 1));
+
+		var cb = Object.assign(document.createElement('input'), {type: 'checkbox', id: 'toggle-' + c.id, checked: c.enabled !== false});
+		cb.addEventListener('change', _ => toggleChoice(c.id, cb.checked));
+
+		var iconEl;
+		if (c.icon) {
+			iconEl = Object.assign(document.createElement('span'), {className: 'choice-icon choice-icon-emoji', innerText: c.icon});
+		} else if (c.builtin) {
+			iconEl = Object.assign(document.createElement('img'), {className: 'choice-icon', src: `../icons/human/${c.id}.png`});
+			iconEl.onerror = _ => { iconEl.src = '../icons/unknown.png'; iconEl.onerror = null; };
+		} else {
+			iconEl = Object.assign(document.createElement('span'), {className: 'choice-icon choice-icon-emoji choice-icon-empty', innerText: '+'});
+		}
+		if (!c.builtin) {
+			iconEl.title = 'Click to set emoji';
+			iconEl.style.cursor = 'pointer';
+			iconEl.addEventListener('click', _ => editChoiceIcon(c.id));
+		}
+
+		var lbl = Object.assign(document.createElement('label'), {htmlFor: 'toggle-' + c.id, innerText: c.label});
+		lbl.className = 'choice-label';
+
+		var preview = Object.assign(document.createElement('span'), {className: 'choice-preview', innerText: getChoicePreview(c)});
+
+		row.append(upBtn, downBtn, cb, iconEl, lbl, preview);
+
+		if (!c.builtin) {
+			var del = Object.assign(document.createElement('button'), {className: 'choice-delete', title: 'Delete', innerText: '×'});
+			del.addEventListener('click', _ => deleteChoice(c.id));
+			row.append(del);
+		}
+
+		list.append(row);
+	});
+}
+
+function getChoicePreview(c) {
+	var p = c.params || {};
+	switch (c.type) {
+		case 'startup': return 'On browser launch';
+		case 'relative': return `In ${p.amount} ${p.unit}${p.amount > 1 ? 's' : ''}`;
+		case 'morning': return `${p.day === 'tomorrow' ? 'Tomorrow' : 'Today'} at morning time`;
+		case 'evening': return `${p.day === 'tomorrow' ? 'Tomorrow' : 'Today'} at evening time`;
+		case 'fixed': return `${p.day === 'tomorrow' ? 'Tomorrow' : 'Today'} at ${String(p.hour || 0).padStart(2,'0')}:${String(p.minute || 0).padStart(2,'0')}`;
+		case 'weekday': return `Next ${['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][p.weekday] || '?'} at ${p.modifier}`;
+		case 'week': return `Next week at ${p.modifier}`;
+		case 'month': return 'Next month';
+		default: return '';
+	}
+}
+
+function renderContextMenu(choices, saved) {
+	var container = document.getElementById('contextMenu');
+	container.innerHTML = '';
+	var enabled = choices.filter(c => c.enabled !== false);
+	enabled.forEach(c => {
+		var hasModifier = c.params && c.params.modifier !== undefined;
+		var row = document.createElement('div');
+		var cb = Object.assign(document.createElement('input'), {type: 'checkbox', id: 'ctx-' + c.id, checked: saved.includes(c.id)});
+		cb.addEventListener('change', saveContextMenu);
+		var lbl = document.createElement('label');
+		lbl.htmlFor = 'ctx-' + c.id;
+		var span = Object.assign(document.createElement('span'), {innerText: c.label});
+		lbl.append(span);
+		if (hasModifier) {
+			var sw = document.createElement('div');
+			sw.className = 'select-wrapper';
+			var sel = document.createElement('select');
+			sel.className = 'popup';
+			sel.id = 'popup_' + c.id;
+			['morning', 'evening', 'now'].forEach(v => {
+				var opt = Object.assign(document.createElement('option'), {value: v, innerText: v === 'now' ? 'Current Time' : v.charAt(0).toUpperCase() + v.slice(1), selected: (c.params.modifier || 'morning') === v});
+				sel.append(opt);
+			});
+			sel.addEventListener('change', async e => {
+				await saveChoiceModifier(c.id, e.target.value);
+				var choices2 = await getOptions('choiceConfig') || DEFAULT_CHOICES;
+				var found = choices2.find(x => x.id === c.id);
+				if (found) found.params.modifier = e.target.value;
+				renderChoiceList(choices2);
+			});
+			sw.append(sel);
+			lbl.append(sw);
+		}
+		row.append(cb, lbl);
+		container.append(row);
+	});
+}
+
+async function saveContextMenu() {
+	var checked = Array.from(document.querySelectorAll('#contextMenu input:checked')).map(c => c.id.replace('ctx-', ''));
+	if (checked.length > 5) {
+		var last = document.querySelector('#contextMenu input:checked:last-of-type');
+		if (last) { last.checked = false; return; }
+	}
+	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
+	o.contextMenu = checked;
+	await saveOptions(o);
+}
+
+async function getCurrentChoices() {
+	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
+	return (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+}
+
+async function toggleChoice(id, enabled) {
+	var choices = await getCurrentChoices();
+	var c = choices.find(x => x.id === id);
+	if (c) c.enabled = enabled;
+	await saveOption('choiceConfig', choices);
+	renderChoiceList(choices);
+	var saved = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
+	renderContextMenu(choices, saved);
+}
+
+async function moveChoice(id, dir) {
+	var choices = await getCurrentChoices();
+	var idx = choices.findIndex(c => c.id === id);
+	if (idx < 0) return;
+	var newIdx = idx + dir;
+	if (newIdx < 0 || newIdx >= choices.length) return;
+	choices.splice(newIdx, 0, choices.splice(idx, 1)[0]);
+	await saveOption('choiceConfig', choices);
+	renderChoiceList(choices);
+}
+
+async function deleteChoice(id) {
+	var choices = await getCurrentChoices();
+	choices = choices.filter(c => c.id !== id);
+	var saved = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
+	saved = saved.filter(x => x !== id);
+	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
+	o.choiceConfig = choices;
+	o.contextMenu = saved;
+	await saveOptions(o);
+	renderChoiceList(choices);
+	renderContextMenu(choices, saved);
+}
+
+async function addChoice() {
+	var label = document.getElementById('new-choice-label').value.trim();
+	if (!label) { document.getElementById('new-choice-label').focus(); return; }
+	var icon = document.getElementById('new-choice-icon').value.trim();
+	var type = document.getElementById('new-choice-type').value;
+	var id = 'custom-' + Date.now();
+	var params = {};
+
+	if (type === 'fixed-today' || type === 'fixed-tomorrow') {
+		params = {
+			day: type === 'fixed-tomorrow' ? 'tomorrow' : 'today',
+			hour: parseInt(document.getElementById('new-fixed-hour').value) || 0,
+			minute: parseInt(document.getElementById('new-fixed-minute').value) || 0,
+		};
+		type = 'fixed';
+	} else if (type === 'relative') {
+		params = {
+			amount: parseInt(document.getElementById('new-rel-amount').value) || 1,
+			unit: document.getElementById('new-rel-unit').value,
+		};
+	} else if (type === 'morning-today') { params = {day: 'today'}; type = 'morning'; }
+	else if (type === 'morning-tomorrow') { params = {day: 'tomorrow'}; type = 'morning'; }
+	else if (type === 'evening-today') { params = {day: 'today'}; type = 'evening'; }
+	else if (type === 'evening-tomorrow') { params = {day: 'tomorrow'}; type = 'evening'; }
+	else if (type === 'weekday') {
+		params = {
+			weekday: parseInt(document.getElementById('new-weekday').value),
+			modifier: document.getElementById('new-weekday-modifier').value,
+		};
+	}
+
+	var repeatId = null;
+	if (type === 'relative' && params.unit === 'hour' && params.amount === 1) repeatId = 'hourly';
+
+	var newChoice = {id, label, type, params, enabled: true, builtin: false, repeat_id: repeatId, menuLabel: label.toLowerCase(), icon: icon || null};
+	var choices = await getCurrentChoices();
+	choices.push(newChoice);
+	await saveOption('choiceConfig', choices);
+	renderChoiceList(choices);
+	var saved = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
+	renderContextMenu(choices, saved);
+	document.getElementById('add-choice-form').classList.add('hidden');
+	document.getElementById('new-choice-label').value = '';
+	document.getElementById('new-choice-icon').value = '';
+}
+
+async function editChoiceIcon(id) {
+	var current = await getCurrentChoices();
+	var c = current.find(x => x.id === id);
+	if (!c) return;
+	var emoji = prompt('Set an emoji for this choice (leave empty to remove):', c.icon || '');
+	if (emoji === null) return;
+	c.icon = emoji.trim() || null;
+	await saveOption('choiceConfig', current);
+	renderChoiceList(current);
+}
+
 function addListeners() {
-	document.querySelectorAll('select').forEach(s => s.addEventListener('change', save));
-	document.querySelectorAll('#contextMenu input').forEach(c => c.addEventListener('change', e => save));
+	document.querySelectorAll('select.direct').forEach(s => s.addEventListener('change', save));
 	document.querySelectorAll('.couchdb-input').forEach(i => i.addEventListener('change', save));
+
+	var addBtn = document.getElementById('add-choice-btn');
+	addBtn.addEventListener('click', _ => document.getElementById('add-choice-form').classList.toggle('hidden'));
+	addBtn.onkeyup = e => {if (e.which === 13) document.getElementById('add-choice-form').classList.toggle('hidden');}
+
+	document.getElementById('new-choice-type').addEventListener('change', updateAddChoiceParams);
+
+	document.getElementById('save-new-choice').addEventListener('click', addChoice);
+	document.getElementById('save-new-choice').onkeyup = e => {if (e.which === 13) addChoice();}
+
 
 	document.querySelector('#shortcut .btn').addEventListener('click', toggleShortcuts);
 	document.querySelector('#shortcut .btn').onkeyup = e => {if (e.which === 13) toggleShortcuts()}
@@ -113,30 +335,28 @@ async function save(e) {
 		}
 	}
 
-	var options = {popup: {}}
+	var options = await getOptions();
+	if (!options || Array.isArray(options)) options = {};
 	if (e && ['morning', 'evening'].includes(e.target.id)) {
 		var tabs = await getSnoozedTabs();
 		var ot = parseInt(e.target.getAttribute('data-orig-value'));
-		var f = t => !t.opened && dayjs(t.wakeUpTime).hour() === ot && dayjs(t.wakeUpTime).minute() === 0 && dayjs(t.wakeUpTime).second() === 0
+		var f = t => !t.opened && dayjs(t.wakeUpTime).hour() === ot && dayjs(t.wakeUpTime).minute() === 0 && dayjs(t.wakeUpTime).second() === 0;
 		var tabsToChange = tabs.filter(f);
 		if (tabsToChange.length) {
-			var count = `${tabsToChange.length > 1 ? 'are' : 'is'} ${tabsToChange.length} tab${tabsToChange.length > 1 ? 's' : ''}`
+			var count = `${tabsToChange.length > 1 ? 'are' : 'is'} ${tabsToChange.length} tab${tabsToChange.length > 1 ? 's' : ''}`;
 			if (confirm(`There ${count} scheduled to wake up at ${dayjs().minute(0).hour(ot).format(getHourFormat())}.
 Would you like to update ${tabsToChange.length > 1 ? 'them' : 'it'} to snooze till ${dayjs().minute(0).hour(e.target.value).format(getHourFormat())}?`)) {
 				tabs.filter(f).forEach(t => {
 					t.modifiedTime = dayjs().valueOf();
-					t.wakeUpTime = dayjs(t.wakeUpTime).hour(e.target.value).valueOf()
-				})
+					t.wakeUpTime = dayjs(t.wakeUpTime).hour(e.target.value).valueOf();
+				});
 				await saveTabs(tabs);
 			}
 		}
 	}
 	document.querySelectorAll('select.direct').forEach(s => options[s.id] = isNaN(s.value) ? s.value : parseInt(s.value));
-	document.querySelectorAll('select.popup').forEach(p => options.popup[p.id.replace('popup_', '')] = p.value);
-	// handle morning evening time separately
 	['morning', 'evening'].forEach(o => options[o] = [parseInt(document.getElementById(`${o}_h`).value), parseInt(document.getElementById(`${o}_m`).value)]);
-	options.contextMenu = Array.from(document.querySelectorAll('#contextMenu input:checked')).map(c => c.id);
-	options.couchdb = {};
+	options.couchdb = options.couchdb || {};
 	['url', 'username', 'password', 'database'].forEach(k => {
 		var el = document.getElementById('couchdb_' + k);
 		if (el) options.couchdb[k] = el.value.trim();
@@ -154,6 +374,13 @@ function toggleRightClickOptions(e) {
 	var s = collapsed.closest('.input-container');
 	s.classList.toggle('show');
 	collapsed.style.maxHeight = s.classList.contains('show') ? `calc(${collapsed.scrollHeight}px + 1em)` : '0px'
+}
+
+function updateAddChoiceParams() {
+	var type = document.getElementById('new-choice-type').value;
+	document.getElementById('params-fixed').classList.toggle('hidden', !type.startsWith('fixed'));
+	document.getElementById('params-relative').classList.toggle('hidden', type !== 'relative');
+	document.getElementById('params-weekday').classList.toggle('hidden', type !== 'weekday');
 }
 
 function toggleShortcuts(e) {
@@ -216,9 +443,11 @@ async function changeIcons(name) {
 
 async function exportTabs() {
 	var tabs = (await getSnoozedTabs()).map(t => {var c = Object.assign({}, t); delete c._id; delete c._rev; return c;});
+	var choices = await getCurrentChoices();
+	var payload = {version: 1, exportedAt: dayjs().toISOString(), tabs, choices};
 	var now = dayjs();
 	var element = document.createElement('a');
-	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(tabs)));
+	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload)));
 	element.setAttribute('download', `Snoozz_export_${now.format('YYYY')}_${now.format('MM')}_${now.format('DD')}.txt`);
 	element.style.display = 'none';
 	document.body.appendChild(element);
@@ -229,33 +458,63 @@ async function exportTabs() {
 async function importTabs(e) {
 	try {
 		var text = await e.target.files[0].text();
-		var json_array = JSON.parse(text);
-		if (!json_array || !json_array.length) throw false;
+		var parsed = JSON.parse(text);
 
-		var allTabs = await getSnoozedTabs();
-		var existing_ids = allTabs.map(at => at.id), needs_update = [];
+		var json_array, importedChoices = null;
+		if (Array.isArray(parsed)) {
+			json_array = parsed;
+		} else if (parsed && typeof parsed === 'object') {
+			json_array = Array.isArray(parsed.tabs) ? parsed.tabs : [];
+			if (Array.isArray(parsed.choices) && parsed.choices.length) importedChoices = parsed.choices;
+		} else {
+			throw false;
+		}
 
-		// remove tabs that already exist in the system, or are more recently updated
-		json_array = json_array.filter(t => {
-			if (!verifyTab(t)) return false;
-			if (!existing_ids.includes(t.id))return true;
-			var existing = allTabs.find(at => at.id === t.id);
-			if (!existing.opened && (t.opened || (t.modifiedTime && !existing.modifiedTime) || (existing.modifiedTime && t.modifiedTime && dayjs(t.modifiedTime) > dayjs(existing.modifiedTime)))) {
-				needs_update.push(existing.id);
-				return true;
-			}
-			return false;
-		});
+		var choiceCount = 0;
+		if (importedChoices) {
+			var current = await getCurrentChoices();
+			var byId = {};
+			current.forEach(c => { byId[c.id] = c; });
+			importedChoices.forEach(c => {
+				if (!c || !c.id || !c.type) return;
+				if (byId[c.id]) Object.assign(byId[c.id], c);
+				else { current.push(c); byId[c.id] = c; choiceCount++; }
+			});
+			await saveOption('choiceConfig', current);
+			var savedCtx = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
+			renderChoiceList(current);
+			renderContextMenu(current, savedCtx);
+		}
 
-		await saveTabs(allTabs.filter(at => !needs_update.includes(at.id)).concat(json_array));
+		var tabCount = 0;
+		if (json_array && json_array.length) {
+			var allTabs = await getSnoozedTabs();
+			var existing_ids = allTabs.map(at => at.id), needs_update = [];
+			json_array = json_array.filter(t => {
+				if (!verifyTab(t)) return false;
+				if (!existing_ids.includes(t.id)) return true;
+				var existing = allTabs.find(at => at.id === t.id);
+				if (!existing.opened && (t.opened || (t.modifiedTime && !existing.modifiedTime) || (existing.modifiedTime && t.modifiedTime && dayjs(t.modifiedTime) > dayjs(existing.modifiedTime)))) {
+					needs_update.push(existing.id);
+					return true;
+				}
+				return false;
+			});
+			await saveTabs(allTabs.filter(at => !needs_update.includes(at.id)).concat(json_array));
+			tabCount = json_array.length;
+		}
 
-		var count = json_array.length;
-		document.querySelector('body > .import-success').innerText = `${count} tab${count === 1 ? ' was' : 's were'} imported from ${e.target.files[0].name}`;
+		if (!tabCount && !choiceCount && !importedChoices) throw false;
+
+		var parts = [];
+		if (tabCount) parts.push(`${tabCount} tab${tabCount === 1 ? '' : 's'}`);
+		if (importedChoices) parts.push(`${importedChoices.length} choice${importedChoices.length === 1 ? '' : 's'}`);
+		document.querySelector('body > .import-success').innerText = `Imported ${parts.join(' and ')} from ${e.target.files[0].name}`;
 		document.querySelector('body > .import-success').classList.add('toast');
-		setTimeout(_ => document.querySelector('body > .import-success').remove('toast'), 4000)
+		setTimeout(_ => document.querySelector('body > .import-success').classList.remove('toast'), 4000);
 	} catch {
 		document.querySelector('body > .import-fail').classList.add('toast');
-		setTimeout(_ => document.querySelector('body > .import-fail').remove('toast'), 4000)
+		setTimeout(_ => document.querySelector('body > .import-fail').classList.remove('toast'), 4000);
 	}
 }
 
@@ -280,9 +539,8 @@ async function updateSyncStatus(status) {
 }
 
 function fillAbout() {
-	var emojis = ['🥭', '🌶️', '🍛', '🐅', '🐘', '🦚', '🍄', '☔', '🏏', '🚃', '🛺', '🪁', '🪔'];
-	document.querySelector('.emoji').innerText = emojis[[Math.floor(Math.random() * emojis.length)]];
-	document.getElementById('version').innerText = `Snoozz v${chrome.runtime.getManifest().version}`;
+	var versionEl = document.getElementById('version');
+	if (versionEl) versionEl.innerText = `Snoozz v${chrome.runtime.getManifest().version}`;
 }
 
 window.onload = initialize

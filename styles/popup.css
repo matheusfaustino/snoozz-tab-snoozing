@@ -334,6 +334,12 @@ body.dark .day-choice span:before {
 	max-height: 2.5em;
 	padding-right: 1em;
 }
+.choice .choice-emoji {
+	font-size: 2em;
+	line-height: 1;
+	padding-right: .5em;
+	display: inline-block;
+}
 
 .label {
 	font-weight: bold;
