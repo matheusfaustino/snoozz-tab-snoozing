@@ -340,3 +340,101 @@ big {
 		content: ' / tab';
 	}
 }
+
+/* Popup choices management */
+#popup-choices h4 { margin: 0 0 .25em; }
+#choice-list { margin: 1em 0; }
+.choice-item {
+	display: flex;
+	align-items: center;
+	gap: .5em;
+	padding: .4em .25em;
+	border-bottom: 1px solid rgba(128,128,128,.15);
+}
+.choice-item:last-child { border-bottom: none; }
+.choice-move {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: var(--color);
+	font-size: .75em;
+	padding: .1em .3em;
+	opacity: .4;
+	transition: opacity .15s;
+}
+.choice-move:hover:not(:disabled) { opacity: 1; }
+.choice-move:disabled { opacity: .15; cursor: default; }
+.choice-label {
+	flex: 1;
+	cursor: default;
+	font-size: .95em;
+}
+.choice-preview {
+	font-size: .75em;
+	opacity: .5;
+	min-width: 10em;
+	text-align: right;
+}
+.choice-delete {
+	background: none;
+	border: none;
+	cursor: pointer;
+	color: #e53935;
+	font-size: 1.1em;
+	padding: .1em .4em;
+	opacity: .5;
+	transition: opacity .15s;
+}
+.choice-delete:hover { opacity: 1; }
+#add-choice-area { margin-top: .75em; }
+#add-choice-form {
+	margin-top: .75em;
+	padding: .75em;
+	background-color: rgba(0,0,0,.05);
+	border-radius: .33em;
+}
+body.dark #add-choice-form { background-color: rgba(255,255,255,.05); }
+.add-choice-row {
+	display: flex;
+	align-items: center;
+	gap: .5em;
+	margin-bottom: .5em;
+}
+.add-choice-params {
+	display: flex;
+	align-items: center;
+	gap: .5em;
+	margin-bottom: .5em;
+	font-size: .9em;
+}
+.add-choice-params.hidden { display: none; }
+.add-choice-actions { margin-top: .75em; gap: 1em; }
+#new-choice-label {
+	background-color: inherit;
+	border: none;
+	border-bottom: 2px solid var(--color);
+	color: var(--color);
+	font-size: .9rem;
+	outline: none;
+	padding: .25em 0;
+	width: 16em;
+}
+#new-choice-label::placeholder { opacity: .35; }
+#new-choice-label:focus { border-bottom-color: #f3b845; }
+#new-fixed-hour, #new-fixed-minute, #new-rel-amount {
+	background-color: inherit;
+	border: none;
+	border-bottom: 2px solid var(--color);
+	color: var(--color);
+	font-size: .9rem;
+	outline: none;
+	padding: .25em 0;
+	text-align: center;
+}
+#cancel-new-choice {
+	cursor: pointer;
+	opacity: .6;
+	text-decoration: underline;
+	font-size: .9em;
+}
+#cancel-new-choice:hover { opacity: 1; }

@@ -173,29 +173,27 @@ async function generatePreview(type) {
 
 async function buildChoices() {
 	var choices = await getChoices();
-	var config = await getOptions(['popup']);
 	colorList = gradientSteps('#F3B845', '#DF4E76', Math.ceil(Object.keys(choices).length / 2) + 1);
 	document.querySelector('.section.choices').append(...(Object.entries(choices).map(([name, o], i) => {
 		var icon = Object.assign(document.createElement('img'), {src: `../icons/${iconTheme}/${name}.png`});
-		
-		var selectWrapper = '' 
-		if (['weekend', 'monday', 'week', 'month'].includes(name)) {
-			var s = config.popup && config.popup[name] ? config.popup[name] : 'morning';
-			var morning = Object.assign(document.createElement('option'), {value: 'morning', innerText: 'Morning', selected: s === 'morning'});
-			var evening = Object.assign(document.createElement('option'), {value: 'evening', innerText: 'Evening', selected: s === 'evening'});
-			var now = Object.assign(document.createElement('option'), {value: 'now', innerText: 'Current Time', selected: s === 'now'});
+		icon.onerror = _ => { icon.src = '../icons/unknown.png'; icon.onerror = null; };
 
+		var hasModifier = o._config && o._config.params && o._config.params.modifier !== undefined;
+		var selectWrapper = '';
+		if (hasModifier) {
+			var cur = o._config.params.modifier;
+			var morning = Object.assign(document.createElement('option'), {value: 'morning', innerText: 'Morning', selected: cur === 'morning'});
+			var evening = Object.assign(document.createElement('option'), {value: 'evening', innerText: 'Evening', selected: cur === 'evening'});
+			var now = Object.assign(document.createElement('option'), {value: 'now', innerText: 'Current Time', selected: cur === 'now'});
 			var select = document.createElement('select');
 			select.tabIndex = -1;
 			select.addEventListener('change', async e => {
-				await savePopupOptions();
-				// change time
+				await saveChoiceModifier(name, e.target.value);
 				var t = await getTimeWithModifier(name);
 				document.querySelector(`#${name} .time`).innerText = t.format(getHourFormat(t.minute() !== 0));
-				// resize dropdown
 				var d = Object.assign(document.createElement('select'), {style: {visibility: 'hidden', position: 'fixed'}});
-				var o = Object.assign(document.createElement('option'), {innerText: e.target.options[e.target.selectedIndex].text});
-				d.append(o);
+				var opt = Object.assign(document.createElement('option'), {innerText: e.target.options[e.target.selectedIndex].text});
+				d.append(opt);
 				e.target.after(d);
 				e.target.style.width = `${d.getBoundingClientRect().width}px`;
 				d.remove();
@@ -215,19 +213,19 @@ async function buildChoices() {
 			tabIndex: o.disabled ? -1 : 0,
 		}, wrapInDiv('', icon, label), o.startUp ? wrapInDiv() : wrapInDiv('', date, time));
 		c.setAttribute('data-repeat-id', o.repeat_id);
-		c.addEventListener('mouseover', _ => c.classList.add('focused'))
+		c.addEventListener('mouseover', _ => c.classList.add('focused'));
 		c.addEventListener('mouseout', _ => c.classList.remove('focused'));
-		if (['weekend', 'monday', 'week', 'month'].includes(name)) c.addEventListener('keydown', e => {
+		if (hasModifier) c.addEventListener('keydown', e => {
 			if (!e || e.which !== 38 && e.which !== 40) return;
 			var options = select.querySelectorAll('option');
 			var current = Array.from(options).findIndex(o => o.selected);
 			if (e.which === 38 && current > 0) options[current - 1].selected = true;
 			if (e.which === 40 && current < options.length - 1) options[current + 1].selected = true;
 			select.dispatchEvent(new Event('change'));
-		})
-		c.onclick = e => {if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c)}
-		c.onkeyup = e => {if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c)}
-		return c
+		});
+		c.onclick = e => {if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c);}
+		c.onkeyup = e => {if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c);}
+		return c;
 	})));
 	document.querySelectorAll('.section.choices .choice select').forEach(s => s.dispatchEvent(new Event('change')));
 }
@@ -542,15 +540,4 @@ async function displayPreviewAnimation(choice, time, text = 'Snoozing') {
 	preview.style.backgroundImage = `linear-gradient(to right, ${getComputedStyle(choice).backgroundColor} 50%, ${getComputedStyle(preview).backgroundColor} 0)`
 	preview.classList.add('animate');
 }
-async function savePopupOptions() {
-	var o = await getOptions();
-	o.popup = {
-		weekend: document.querySelector('#weekend select').value,
-		monday: document.querySelector('#monday select').value,
-		week: document.querySelector('#week select').value,
-		month: document.querySelector('#month select').value
-	}
-	await saveOptions(o);
-}
-
 window.onload = init

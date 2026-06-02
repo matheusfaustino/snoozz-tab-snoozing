@@ -358,128 +358,28 @@ async function snoozeRecurring(target, data) {
 
 }
 
-async function getTimeWithModifier(choice) {
-	var c = await getChoices([choice])
-	var options = await getOptions(['morning', 'evening', 'popup']);
-	var modifier = options.popup ? options.popup[choice] : '';
-	options = upgradeSettings(options);
-	var m = options[modifier] || [dayjs().hour(), dayjs().minute()];
-	return dayjs(c.time).add(m[0], 'h').add(m[1], 'm');
+async function getTimeWithModifier(choiceId) {
+	var c = await getChoices(choiceId);
+	return c ? dayjs(c.time) : dayjs();
 }
 
 async function getChoices(which) {
 	var NOW = dayjs();
-	var config = await getOptions(['morning', 'evening']);
+	var config = await getOptions(['morning', 'evening', 'choiceConfig']);
 	if (typeof config.morning === 'number' || typeof config.evening === 'number') config = upgradeSettings(config);
-	var all = {
-		'startup': {
-			label: 'On Next Startup',
-			repeatLabel: 'Every Browser Startup',
-			startUp: true,
-			time: NOW.add(20, 'y'),
-			timeString: '',
-			repeatTime: NOW.add(20, 'y'),
-			repeatTimeString: '',
-			repeat_id: 'startup',
-			menuLabel: 'till next startup'
-		},
-		'in-an-hour': {
-			label: 'In One Hour',
-			repeatLabel: 'Every hour',
-			time: NOW.add(1, 'h'),
-			timeString: NOW.add(1, 'h').dayOfYear() == NOW.dayOfYear() ? 'Today' : 'Tomorrow',
-			repeatTime: NOW.add(1, 'h').format(getHourFormat(true)),
-			repeatTimeString: `Starts at`,
-			repeat_id: 'hourly',
-			menuLabel: 'for an hour'
-		},
-		'today-morning': {
-			label: 'This Morning',
-			repeatLabel: '',
-			time: NOW.startOf('d').add(config.morning[0], 'h').add(config.morning[1], 'm'),
-			timeString: 'Today',
-			repeatTime: '',
-			repeatTimeString: '',
-			menuLabel: 'till this morning',
-			disabled: NOW.startOf('d').add(config.morning[0], 'h').add(config.morning[1], 'm').valueOf() < dayjs(),
-			repeatDisabled: true,
-		},
-		'today-evening': {
-			label: getEveningLabel(config.evening[0]),
-			repeatLabel: `Everyday, Now`,
-			time: NOW.startOf('d').add(config.evening[0], 'h').add(config.evening[1], 'm'),
-			timeString: 'Today',
-			repeatTime: NOW.format(getHourFormat(true)),
-			repeatTimeString: 'Starts Tom at',
-			repeat_id: 'daily',
-			menuLabel: 'till this evening',
-			disabled: NOW.startOf('d').add(config.evening[0], 'h').add(config.evening[1], 'm').valueOf() < dayjs(),
-		},
-		'tom-morning': {
-			label: 'Tomorrow Morning',
-			repeatLabel: 'Every Morning',
-			time: NOW.startOf('d').add(1,'d').add(config.morning[0], 'h').add(config.morning[1], 'm'),
-			timeString: NOW.add(1,'d').format('ddd, D MMM'),
-			repeatTime: NOW.startOf('d').add(config.morning[0], 'h').add(config.morning[1], 'm').format(getHourFormat(true)),
-			repeatTimeString: `Starts ${NOW < NOW.startOf('d').add(config.morning[0], 'h').add(config.morning[1], 'm') ? 'Today' : 'Tom'} at`,
-			repeat_id: 'daily_morning',
-			menuLabel: 'till tomorrow morning'
-		},
-		'tom-evening': {
-			label: getEveningLabel(config.evening[0], 'tomorrow'),
-			repeatLabel: getEveningLabel(config.evening[0], 'everyday'),
-			time: NOW.startOf('d').add(1,'d').add(config.evening[0], 'h').add(config.evening[1], 'm'),
-			timeString: NOW.add(1,'d').format('ddd, D MMM'),
-			repeatTime: NOW.startOf('d').add(config.evening[0], 'h').add(config.evening[1], 'm').format(getHourFormat(true)),
-			repeatTimeString: `Starts ${NOW < NOW.startOf('d').add(config.evening[0], 'h').add(config.evening[1], 'm') ? 'Today' : 'Tom'} at`,
-			repeat_id: 'daily_evening',
-			menuLabel: 'till tomorrow evening'
-		},
-		'weekend': {
-			label: 'Saturday',
-			repeatLabel: 'Every Saturday',
-			time: NOW.startOf('d').weekday(6),
-			timeString: NOW.weekday(6).format('ddd, D MMM'),
-			repeatTime: NOW.startOf('d').format(getHourFormat(true)),
-			repeatTimeString: `${NOW.weekday(6).format('dddd')}s at`,
-			repeat_id: 'weekends',
-			menuLabel: 'till the weekend',
-			// disabled: NOW.day() === 6,
-		},
-		'monday': {
-			label: 'Next Monday',
-			repeatLabel: 'Every Monday',
-			time: NOW.startOf('d').weekday(NOW.startOf('d') < dayjs().startOf('d').weekday(1) ? 1 : 8),
-			timeString: NOW.weekday(NOW.startOf('d') < dayjs().startOf('d').weekday(1) ? 1 : 8).format('ddd, D MMM'),
-			repeatTime: NOW.startOf('d').format(getHourFormat(true)),
-			repeatTimeString: `${NOW.weekday(1).format('dddd')}s at`,
-			repeat_id: 'mondays',
-			menuLabel: 'till next Monday'
-		},
-		'week': {
-			label: 'Next Week',
-			repeatLabel: 'Every ' + NOW.format('dddd'),
-			time: NOW.startOf('d').add(1, 'week'),
-			timeString: NOW.startOf('d').add(1, 'week').format('ddd, D MMM'),
-			repeatTime: NOW.format(getHourFormat(true)),
-			repeatTimeString: `${NOW.format('dddd')}s at`,
-			repeat_id: 'weekly',
-			menuLabel: 'for a week',
-			// disabled: NOW.day() === 1,
-			// repeatDisabled: NOW.day() === 1 || NOW.day() === 6,
-		},
-		'month': {
-			label: 'Next Month',
-			repeatLabel: 'Every Month',
-			time: NOW.startOf('d').add(1, 'M'),
-			timeString: NOW.startOf('d').add(1, 'M').format('ddd, D MMM'),
-			repeatTime: NOW.format(getHourFormat(true)),
-			repeatTimeString: `${getOrdinal(NOW.format('D'))} of Month`,
-			repeat_id: 'monthly',
-			menuLabel: 'for a month'
-		},
-	}
-	return which && all[which] ? all[which] : all;
+	var choiceConfig = (config.choiceConfig && config.choiceConfig.length) ? config.choiceConfig : DEFAULT_CHOICES;
+	var all = {};
+	choiceConfig.filter(c => c.enabled !== false).forEach(c => { all[c.id] = buildChoiceObject(c, NOW, config); });
+	return which ? (all[which] || null) : all;
+}
+
+async function saveChoiceModifier(choiceId, modifier) {
+	var o = await getOptions();
+	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+	var choice = choices.find(c => c.id === choiceId);
+	if (choice && choice.params) choice.params.modifier = modifier;
+	o.choiceConfig = choices;
+	await saveOptions(o);
 }
 
 async function calculateNextSnoozeTime(data) {
@@ -589,6 +489,122 @@ var SIZES = {
 	object: o => !o ? 0 : Object.keys(o).reduce((total, key) => calcObjectSize(key) + calcObjectSize(o[key]) + total, 0)
 }
 
+var DEFAULT_CHOICES = [
+	{id: 'startup',       label: 'On Next Startup',     type: 'startup',  params: {},                              enabled: true, builtin: true, repeat_id: 'startup',       menuLabel: 'till next startup'},
+	{id: 'in-an-hour',   label: 'In One Hour',          type: 'relative', params: {amount: 1, unit: 'hour'},      enabled: true, builtin: true, repeat_id: 'hourly',        menuLabel: 'for an hour'},
+	{id: 'today-morning',label: 'This Morning',         type: 'morning',  params: {day: 'today'},                 enabled: true, builtin: true, repeat_id: null,            menuLabel: 'till this morning'},
+	{id: 'today-evening',label: 'This Evening',         type: 'evening',  params: {day: 'today'},                 enabled: true, builtin: true, repeat_id: 'daily',         menuLabel: 'till this evening'},
+	{id: 'tom-morning',  label: 'Tomorrow Morning',     type: 'morning',  params: {day: 'tomorrow'},              enabled: true, builtin: true, repeat_id: 'daily_morning', menuLabel: 'till tomorrow morning'},
+	{id: 'tom-evening',  label: 'Tomorrow Evening',     type: 'evening',  params: {day: 'tomorrow'},              enabled: true, builtin: true, repeat_id: 'daily_evening', menuLabel: 'till tomorrow evening'},
+	{id: 'weekend',      label: 'Saturday',             type: 'weekday',  params: {weekday: 6, modifier: 'morning'}, enabled: true, builtin: true, repeat_id: 'weekends',   menuLabel: 'till the weekend'},
+	{id: 'monday',       label: 'Next Monday',          type: 'weekday',  params: {weekday: 1, modifier: 'morning'}, enabled: true, builtin: true, repeat_id: 'mondays',    menuLabel: 'till next Monday'},
+	{id: 'week',         label: 'Next Week',            type: 'week',     params: {modifier: 'morning'},          enabled: true, builtin: true, repeat_id: 'weekly',        menuLabel: 'for a week'},
+	{id: 'month',        label: 'Next Month',           type: 'month',    params: {},                              enabled: true, builtin: true, repeat_id: 'monthly',       menuLabel: 'for a month'},
+];
+
+function buildChoiceObject(c, NOW, config) {
+	var p = c.params || {};
+	var m = config.morning || [9, 0];
+	var ev = config.evening || [18, 0];
+
+	function applyModifier(base, modifier) {
+		if (modifier === 'morning') return base.hour(m[0]).minute(m[1]).second(0);
+		if (modifier === 'evening') return base.hour(ev[0]).minute(ev[1]).second(0);
+		return base.hour(NOW.hour()).minute(NOW.minute()).second(0);
+	}
+
+	var time, timeString, repeatLabel = '', repeatTime = '', repeatTimeString = '';
+	var disabled = false, repeatDisabled = false, startUp = false;
+
+	switch (c.type) {
+		case 'startup':
+			time = NOW.add(20, 'y');
+			timeString = '';
+			repeatLabel = 'Every Browser Startup';
+			repeatTime = NOW.add(20, 'y');
+			repeatTimeString = '';
+			startUp = true;
+			break;
+		case 'relative':
+			var unitMap = {hour: 'h', day: 'd', week: 'w', month: 'M'};
+			var u = unitMap[p.unit] || 'h';
+			time = NOW.add(p.amount, u);
+			timeString = time.dayOfYear() === NOW.dayOfYear() ? 'Today' : 'Tomorrow';
+			repeatLabel = `Every ${p.amount > 1 ? p.amount + ' ' : ''}${p.unit}${p.amount > 1 ? 's' : ''}`;
+			repeatTime = time.format(getHourFormat(true));
+			repeatTimeString = 'Starts at';
+			break;
+		case 'morning':
+			var base = p.day === 'tomorrow' ? NOW.startOf('d').add(1, 'd') : NOW.startOf('d');
+			time = base.hour(m[0]).minute(m[1]).second(0);
+			timeString = p.day === 'tomorrow' ? NOW.add(1, 'd').format('ddd, D MMM') : 'Today';
+			disabled = p.day === 'today' && time.valueOf() < NOW.valueOf();
+			repeatDisabled = p.day === 'today';
+			repeatLabel = p.day === 'today' ? '' : 'Every Morning';
+			repeatTime = p.day === 'today' ? '' : time.format(getHourFormat(time.minute() !== 0));
+			repeatTimeString = p.day === 'today' ? '' : `Starts ${NOW < NOW.startOf('d').add(m[0], 'h').add(m[1], 'm') ? 'Today' : 'Tom'} at`;
+			break;
+		case 'evening':
+			var base = p.day === 'tomorrow' ? NOW.startOf('d').add(1, 'd') : NOW.startOf('d');
+			time = base.hour(ev[0]).minute(ev[1]).second(0);
+			timeString = p.day === 'tomorrow' ? NOW.add(1, 'd').format('ddd, D MMM') : 'Today';
+			disabled = p.day === 'today' && time.valueOf() < NOW.valueOf();
+			if (p.day === 'today') {
+				repeatLabel = 'Everyday, Now';
+				repeatTime = NOW.format(getHourFormat(true));
+				repeatTimeString = 'Starts Tom at';
+			} else {
+				repeatLabel = getEveningLabel(ev[0], 'everyday');
+				repeatTime = NOW.startOf('d').hour(ev[0]).minute(ev[1]).format(getHourFormat(ev[1] !== 0));
+				repeatTimeString = `Starts ${NOW < NOW.startOf('d').hour(ev[0]).minute(ev[1]) ? 'Today' : 'Tom'} at`;
+			}
+			break;
+		case 'fixed':
+			var base = p.day === 'tomorrow' ? NOW.startOf('d').add(1, 'd') : NOW.startOf('d');
+			time = base.hour(p.hour || 0).minute(p.minute || 0).second(0);
+			timeString = p.day === 'tomorrow' ? 'Tomorrow' : 'Today';
+			disabled = p.day === 'today' && time.valueOf() < NOW.valueOf();
+			repeatDisabled = true;
+			break;
+		case 'weekday':
+			var wday = p.weekday;
+			var target;
+			if (wday === 6) {
+				target = NOW.startOf('d').weekday(6);
+				disabled = NOW.day() === 6;
+			} else {
+				var thisWeek = NOW.startOf('d').weekday(wday);
+				target = NOW.startOf('d') < thisWeek ? thisWeek : NOW.startOf('d').weekday(wday + 7);
+			}
+			time = applyModifier(target, p.modifier);
+			var displayIdx = wday === 6 ? 6 : (NOW.startOf('d') < NOW.startOf('d').weekday(wday) ? wday : wday + 7);
+			timeString = NOW.weekday(displayIdx).format('ddd, D MMM');
+			repeatLabel = `Every ${target.format('dddd')}`;
+			repeatTime = applyModifier(NOW.startOf('d'), p.modifier).format(getHourFormat(m[1] !== 0 || ev[1] !== 0));
+			repeatTimeString = `${target.format('dddd')}s at`;
+			break;
+		case 'week':
+			var base = NOW.startOf('d').add(1, 'week');
+			time = applyModifier(base, p.modifier);
+			timeString = base.format('ddd, D MMM');
+			repeatLabel = 'Every ' + NOW.format('dddd');
+			repeatTime = applyModifier(NOW.startOf('d'), p.modifier).format(getHourFormat(m[1] !== 0 || ev[1] !== 0));
+			repeatTimeString = `${NOW.format('dddd')}s at`;
+			break;
+		case 'month':
+			time = NOW.startOf('d').add(1, 'M');
+			timeString = time.format('ddd, D MMM');
+			repeatLabel = 'Every Month';
+			repeatTime = NOW.format(getHourFormat(true));
+			repeatTimeString = `${getOrdinal(NOW.format('D'))} of Month`;
+			break;
+	}
+
+	var label = c.type === 'evening' ? getEveningLabel(ev[0], p.day === 'today' ? undefined : p.day) : c.label;
+
+	return {label, repeatLabel, time, timeString, repeatTime, repeatTimeString, repeat_id: c.repeat_id || null, menuLabel: c.menuLabel || '', disabled, repeatDisabled, startUp, _config: c};
+}
+
 const DEFAULT_OPTIONS = {
 	morning: [9, 0],
 	evening: [18, 0],
@@ -601,7 +617,7 @@ const DEFAULT_OPTIONS = {
 	closeDelay: 1000,
 	napCollapsed: [],
 	weekStart: 0,
-	popup: {weekend: 'morning', monday: 'morning', week: 'morning', month: 'morning'},
+	choiceConfig: DEFAULT_CHOICES,
 	contextMenu: ['startup', 'in-an-hour', 'today-evening', 'tom-morning', 'weekend'],
 	couchdb: {url: '', username: '', password: '', database: ''}
 }
