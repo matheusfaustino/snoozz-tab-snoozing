@@ -1,3 +1,5 @@
 node_modules
 scripts/pouchdb.js
 web-ext-artifacts
+tab-snooze-spec.md
+us-server-api.md
