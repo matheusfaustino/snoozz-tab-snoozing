@@ -67,6 +67,7 @@ async function isIncognitoAllowed() {
 async function saveOption(key, val) {
 	if (!key || !val) return;
 	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
 	o[key] = val;
 	await saveOptions(o);
 }
@@ -375,6 +376,7 @@ async function getChoices(which) {
 
 async function saveChoiceModifier(choiceId, modifier) {
 	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
 	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice && choice.params) choice.params.modifier = modifier;

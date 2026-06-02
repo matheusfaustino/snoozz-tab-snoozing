@@ -166,12 +166,14 @@ async function saveContextMenu() {
 		if (last) { last.checked = false; return; }
 	}
 	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
 	o.contextMenu = checked;
 	await saveOptions(o);
 }
 
 async function getCurrentChoices() {
 	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
 	return (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
 }
 
@@ -202,6 +204,7 @@ async function deleteChoice(id) {
 	var saved = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
 	saved = saved.filter(x => x !== id);
 	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
 	o.choiceConfig = choices;
 	o.contextMenu = saved;
 	await saveOptions(o);
@@ -309,7 +312,8 @@ async function save(e) {
 		}
 	}
 
-	var options = await getOptions() || {};
+	var options = await getOptions();
+	if (!options || Array.isArray(options)) options = {};
 	if (e && ['morning', 'evening'].includes(e.target.id)) {
 		var tabs = await getSnoozedTabs();
 		var ot = parseInt(e.target.getAttribute('data-orig-value'));

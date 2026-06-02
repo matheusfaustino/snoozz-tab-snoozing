@@ -223,8 +223,8 @@ async function buildChoices() {
 			if (e.which === 40 && current < options.length - 1) options[current + 1].selected = true;
 			select.dispatchEvent(new Event('change'));
 		});
-		c.onclick = e => {if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c);}
-		c.onkeyup = e => {if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c);}
+		c.onclick = e => {if (c.classList.contains('disabled')) return; if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c);}
+		c.onkeyup = e => {if (c.classList.contains('disabled')) return; if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c);}
 		return c;
 	})));
 	document.querySelectorAll('.section.choices .choice select').forEach(s => s.dispatchEvent(new Event('change')));
@@ -477,9 +477,8 @@ async function modify(time, choice) {
 }
 
 async function snooze(time, choice) {
-	time = ['weekend', 'monday', 'week', 'month'].includes(choice.id) ? await getTimeWithModifier(choice.id) : time;
 	var response, target = document.querySelector('.target.active');
-	if (!['tab', 'window', 'selection', 'group'].includes(target.id)) return;
+	if (!target || !['tab', 'window', 'selection', 'group'].includes(target.id)) return;
 
 	if (document.getElementById('repeat').checked) {
 		var t, data = {type: choice.getAttribute('data-repeat-id')}
