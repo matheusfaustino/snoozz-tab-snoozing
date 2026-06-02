@@ -443,9 +443,11 @@ async function changeIcons(name) {
 
 async function exportTabs() {
 	var tabs = (await getSnoozedTabs()).map(t => {var c = Object.assign({}, t); delete c._id; delete c._rev; return c;});
+	var choices = await getCurrentChoices();
+	var payload = {version: 1, exportedAt: dayjs().toISOString(), tabs, choices};
 	var now = dayjs();
 	var element = document.createElement('a');
-	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(tabs)));
+	element.setAttribute('href', 'data:text/plain;charset=utf-8,' + encodeURIComponent(JSON.stringify(payload)));
 	element.setAttribute('download', `Snoozz_export_${now.format('YYYY')}_${now.format('MM')}_${now.format('DD')}.txt`);
 	element.style.display = 'none';
 	document.body.appendChild(element);
@@ -456,33 +458,63 @@ async function exportTabs() {
 async function importTabs(e) {
 	try {
 		var text = await e.target.files[0].text();
-		var json_array = JSON.parse(text);
-		if (!json_array || !json_array.length) throw false;
+		var parsed = JSON.parse(text);
 
-		var allTabs = await getSnoozedTabs();
-		var existing_ids = allTabs.map(at => at.id), needs_update = [];
+		var json_array, importedChoices = null;
+		if (Array.isArray(parsed)) {
+			json_array = parsed;
+		} else if (parsed && typeof parsed === 'object') {
+			json_array = Array.isArray(parsed.tabs) ? parsed.tabs : [];
+			if (Array.isArray(parsed.choices) && parsed.choices.length) importedChoices = parsed.choices;
+		} else {
+			throw false;
+		}
 
-		// remove tabs that already exist in the system, or are more recently updated
-		json_array = json_array.filter(t => {
-			if (!verifyTab(t)) return false;
-			if (!existing_ids.includes(t.id))return true;
-			var existing = allTabs.find(at => at.id === t.id);
-			if (!existing.opened && (t.opened || (t.modifiedTime && !existing.modifiedTime) || (existing.modifiedTime && t.modifiedTime && dayjs(t.modifiedTime) > dayjs(existing.modifiedTime)))) {
-				needs_update.push(existing.id);
-				return true;
-			}
-			return false;
-		});
+		var choiceCount = 0;
+		if (importedChoices) {
+			var current = await getCurrentChoices();
+			var byId = {};
+			current.forEach(c => { byId[c.id] = c; });
+			importedChoices.forEach(c => {
+				if (!c || !c.id || !c.type) return;
+				if (byId[c.id]) Object.assign(byId[c.id], c);
+				else { current.push(c); byId[c.id] = c; choiceCount++; }
+			});
+			await saveOption('choiceConfig', current);
+			var savedCtx = (await getOptions('contextMenu')) || DEFAULT_OPTIONS.contextMenu;
+			renderChoiceList(current);
+			renderContextMenu(current, savedCtx);
+		}
 
-		await saveTabs(allTabs.filter(at => !needs_update.includes(at.id)).concat(json_array));
+		var tabCount = 0;
+		if (json_array && json_array.length) {
+			var allTabs = await getSnoozedTabs();
+			var existing_ids = allTabs.map(at => at.id), needs_update = [];
+			json_array = json_array.filter(t => {
+				if (!verifyTab(t)) return false;
+				if (!existing_ids.includes(t.id)) return true;
+				var existing = allTabs.find(at => at.id === t.id);
+				if (!existing.opened && (t.opened || (t.modifiedTime && !existing.modifiedTime) || (existing.modifiedTime && t.modifiedTime && dayjs(t.modifiedTime) > dayjs(existing.modifiedTime)))) {
+					needs_update.push(existing.id);
+					return true;
+				}
+				return false;
+			});
+			await saveTabs(allTabs.filter(at => !needs_update.includes(at.id)).concat(json_array));
+			tabCount = json_array.length;
+		}
 
-		var count = json_array.length;
-		document.querySelector('body > .import-success').innerText = `${count} tab${count === 1 ? ' was' : 's were'} imported from ${e.target.files[0].name}`;
+		if (!tabCount && !choiceCount && !importedChoices) throw false;
+
+		var parts = [];
+		if (tabCount) parts.push(`${tabCount} tab${tabCount === 1 ? '' : 's'}`);
+		if (importedChoices) parts.push(`${importedChoices.length} choice${importedChoices.length === 1 ? '' : 's'}`);
+		document.querySelector('body > .import-success').innerText = `Imported ${parts.join(' and ')} from ${e.target.files[0].name}`;
 		document.querySelector('body > .import-success').classList.add('toast');
-		setTimeout(_ => document.querySelector('body > .import-success').remove('toast'), 4000)
+		setTimeout(_ => document.querySelector('body > .import-success').classList.remove('toast'), 4000);
 	} catch {
 		document.querySelector('body > .import-fail').classList.add('toast');
-		setTimeout(_ => document.querySelector('body > .import-fail').remove('toast'), 4000)
+		setTimeout(_ => document.querySelector('body > .import-fail').classList.remove('toast'), 4000);
 	}
 }
 
