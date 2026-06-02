@@ -175,8 +175,13 @@ async function buildChoices() {
 	var choices = await getChoices();
 	colorList = gradientSteps('#F3B845', '#DF4E76', Math.ceil(Object.keys(choices).length / 2) + 1);
 	document.querySelector('.section.choices').append(...(Object.entries(choices).map(([name, o], i) => {
-		var icon = Object.assign(document.createElement('img'), {src: `../icons/${iconTheme}/${name}.png`});
-		icon.onerror = _ => { icon.src = '../icons/unknown.png'; icon.onerror = null; };
+		var icon;
+		if (o._config && o._config.icon) {
+			icon = Object.assign(document.createElement('span'), {className: 'choice-emoji', innerText: o._config.icon});
+		} else {
+			icon = Object.assign(document.createElement('img'), {src: `../icons/${iconTheme}/${name}.png`});
+			icon.onerror = _ => { icon.src = '../icons/unknown.png'; icon.onerror = null; };
+		}
 
 		var hasModifier = o._config && o._config.params && o._config.params.modifier !== undefined;
 		var selectWrapper = '';

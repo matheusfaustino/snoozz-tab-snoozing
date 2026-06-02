@@ -94,12 +94,13 @@ async function wakeMeUp(tabs) {
 	for (var s of toOpen) s.tabs ? (s.selection ? await openSelection(s, true) : await openWindow(s, true)) : await openTab(s, null, true);
 }
 
+var contextMenuListenerAdded = false;
 async function setUpContextMenus(cachedMenus) {
 	var cm = cachedMenus || await getOptions('contextMenu');
-	if (!cm || !cm.length) return;
+	if (!cm || !cm.length) cm = DEFAULT_OPTIONS.contextMenu;
 	var choices = await getChoices();
 	cm = cm.filter(id => choices[id]);
-	await chrome.contextMenus.removeAll();
+	try { await chrome.contextMenus.removeAll(); } catch(e) {}
 	if (!cm.length) return;
 	var contexts = getBrowser() === 'firefox' ? ['link', 'tab'] : ['link'];
 	if (cm.length === 1) {
@@ -107,21 +108,23 @@ async function setUpContextMenus(cachedMenus) {
 			id: cm[0],
 			contexts: contexts,
 			title: `Snoozz ${choices[cm[0]].label.toLowerCase()}`,
-			documentUrlPatterns: ['<all_urls>'],
 			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${cm[0]}.png`}} : {}
 		});
 	} else {
-		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz', documentUrlPatterns: ['<all_urls>']});
+		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz'});
 		for (var o of cm) await chrome.contextMenus.create({
 			parentId: 'snoozz',
 			id: o,
 			contexts: contexts,
-			title: choices[o].menuLabel,
+			title: choices[o].menuLabel || choices[o].label,
 			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${o}.png`}} : {}
 		});
 	}
-	chrome.contextMenus.onClicked.addListener(snoozeInBackground);
-	if (getBrowser() === 'firefox') chrome.contextMenus.onShown.addListener(contextMenuUpdater);
+	if (!contextMenuListenerAdded) {
+		chrome.contextMenus.onClicked.addListener(snoozeInBackground);
+		if (getBrowser() === 'firefox') chrome.contextMenus.onShown.addListener(contextMenuUpdater);
+		contextMenuListenerAdded = true;
+	}
 }
 if (chrome.commands) chrome.commands.onCommand.addListener(async (command, tab) => {
 	if (command === 'nap-room') return openExtensionTab('/html/nap-room.html');
@@ -249,6 +252,7 @@ chrome.runtime.onInstalled.addListener(async details => {
 	}
 });
 chrome.runtime.onStartup.addListener(init);
+setUpContextMenus();
 chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask()});
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {

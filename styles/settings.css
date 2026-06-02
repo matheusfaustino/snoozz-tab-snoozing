@@ -364,6 +364,23 @@ big {
 }
 .choice-move:hover:not(:disabled) { opacity: 1; }
 .choice-move:disabled { opacity: .15; cursor: default; }
+.choice-icon {
+	width: 1.5em;
+	height: 1.5em;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 1.2em;
+}
+.choice-icon-emoji {
+	border-radius: .25em;
+	padding: .1em;
+}
+.choice-icon-empty {
+	opacity: .35;
+	border: 1px dashed currentColor;
+	font-size: 1em;
+}
 .choice-label {
 	flex: 1;
 	cursor: default;

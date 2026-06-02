@@ -89,12 +89,27 @@ function renderChoiceList(choices) {
 		var cb = Object.assign(document.createElement('input'), {type: 'checkbox', id: 'toggle-' + c.id, checked: c.enabled !== false});
 		cb.addEventListener('change', _ => toggleChoice(c.id, cb.checked));
 
+		var iconEl;
+		if (c.icon) {
+			iconEl = Object.assign(document.createElement('span'), {className: 'choice-icon choice-icon-emoji', innerText: c.icon});
+		} else if (c.builtin) {
+			iconEl = Object.assign(document.createElement('img'), {className: 'choice-icon', src: `../icons/human/${c.id}.png`});
+			iconEl.onerror = _ => { iconEl.src = '../icons/unknown.png'; iconEl.onerror = null; };
+		} else {
+			iconEl = Object.assign(document.createElement('span'), {className: 'choice-icon choice-icon-emoji choice-icon-empty', innerText: '+'});
+		}
+		if (!c.builtin) {
+			iconEl.title = 'Click to set emoji';
+			iconEl.style.cursor = 'pointer';
+			iconEl.addEventListener('click', _ => editChoiceIcon(c.id));
+		}
+
 		var lbl = Object.assign(document.createElement('label'), {htmlFor: 'toggle-' + c.id, innerText: c.label});
 		lbl.className = 'choice-label';
 
 		var preview = Object.assign(document.createElement('span'), {className: 'choice-preview', innerText: getChoicePreview(c)});
 
-		row.append(upBtn, downBtn, cb, lbl, preview);
+		row.append(upBtn, downBtn, cb, iconEl, lbl, preview);
 
 		if (!c.builtin) {
 			var del = Object.assign(document.createElement('button'), {className: 'choice-delete', title: 'Delete', innerText: '×'});
@@ -215,6 +230,7 @@ async function deleteChoice(id) {
 async function addChoice() {
 	var label = document.getElementById('new-choice-label').value.trim();
 	if (!label) { document.getElementById('new-choice-label').focus(); return; }
+	var icon = document.getElementById('new-choice-icon').value.trim();
 	var type = document.getElementById('new-choice-type').value;
 	var id = 'custom-' + Date.now();
 	var params = {};
@@ -245,7 +261,7 @@ async function addChoice() {
 	var repeatId = null;
 	if (type === 'relative' && params.unit === 'hour' && params.amount === 1) repeatId = 'hourly';
 
-	var newChoice = {id, label, type, params, enabled: true, builtin: false, repeat_id: repeatId, menuLabel: label.toLowerCase()};
+	var newChoice = {id, label, type, params, enabled: true, builtin: false, repeat_id: repeatId, menuLabel: label.toLowerCase(), icon: icon || null};
 	var choices = await getCurrentChoices();
 	choices.push(newChoice);
 	await saveOption('choiceConfig', choices);
@@ -254,6 +270,18 @@ async function addChoice() {
 	renderContextMenu(choices, saved);
 	document.getElementById('add-choice-form').classList.add('hidden');
 	document.getElementById('new-choice-label').value = '';
+	document.getElementById('new-choice-icon').value = '';
+}
+
+async function editChoiceIcon(id) {
+	var current = await getCurrentChoices();
+	var c = current.find(x => x.id === id);
+	if (!c) return;
+	var emoji = prompt('Set an emoji for this choice (leave empty to remove):', c.icon || '');
+	if (emoji === null) return;
+	c.icon = emoji.trim() || null;
+	await saveOption('choiceConfig', current);
+	renderChoiceList(current);
 }
 
 function addListeners() {
@@ -269,11 +297,6 @@ function addListeners() {
 	document.getElementById('save-new-choice').addEventListener('click', addChoice);
 	document.getElementById('save-new-choice').onkeyup = e => {if (e.which === 13) addChoice();}
 
-	document.getElementById('cancel-new-choice').addEventListener('click', _ => {
-		document.getElementById('add-choice-form').classList.add('hidden');
-		document.getElementById('new-choice-label').value = '';
-	});
-	document.getElementById('cancel-new-choice').onkeyup = e => {if (e.which === 13) document.getElementById('add-choice-form').classList.add('hidden');};
 
 	document.querySelector('#shortcut .btn').addEventListener('click', toggleShortcuts);
 	document.querySelector('#shortcut .btn').onkeyup = e => {if (e.which === 13) toggleShortcuts()}
