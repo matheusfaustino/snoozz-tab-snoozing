@@ -102,9 +102,9 @@ async function setUpContextMenus(cachedMenus) {
 	if (cm.length === 1) {
 		await chrome.contextMenus.removeAll();
 		await chrome.contextMenus.create({
-			id: cm[0], 
-			contexts: contexts, 
-			title: `Snoozz ${choices[cm[0]].label.toLowerCase()}`, 
+			id: cm[0],
+			contexts: contexts,
+			title: `Snoozz ${choices[cm[0]].label.toLowerCase()}`,
 			documentUrlPatterns: ['<all_urls>'],
 			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${cm[0]}.png`}} : {}
 		});
@@ -113,7 +113,7 @@ async function setUpContextMenus(cachedMenus) {
 		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz', documentUrlPatterns: ['<all_urls>']})
 		for (var o of cm) await chrome.contextMenus.create({
 			parentId: 'snoozz',
-			id: o, 
+			id: o,
 			contexts: contexts,
 			title: choices[o].menuLabel,
 			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${o}.png`}} : {}
@@ -130,7 +130,7 @@ if (chrome.commands) chrome.commands.onCommand.addListener(async (command, tab) 
 
 async function snoozeInBackground(item, tab) {
 	var c = await getChoices(item.menuItemId);
-	
+
 	var isHref = item.linkUrl && item.linkUrl.length;
 	var url = isHref ? item.linkUrl : (item.pageUrl || (tab && tab.url));
 	if(!isValid({url})) return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The link you are trying to snooze is invalid.', true);
@@ -149,7 +149,7 @@ async function snoozeInBackground(item, tab) {
 	var assembledTab = Object.assign(item, {url, title, pinned, cookieStoreId, startUp, wakeUpTime})
 
 	var snoozed = await snoozeTab(item.menuItemId === 'startup' ? 'startup' : snoozeTime.valueOf(), assembledTab);
-	
+
 	var msg = `${!isHref ? tab.title : getHostname(url)} will wake up ${formatSnoozedUntil(assembledTab)}.`
 	createNotification(snoozed.tabDBId, 'A new tab is now napping :)', 'icons/logo.svg', msg, true);
 
@@ -242,10 +242,6 @@ async function init() {
 
 chrome.runtime.onInstalled.addListener(async details => {
 	setUpExtension();
-<<<<<<< HEAD
-	if (details && details.reason && details.reason == 'install') await new Promise(r => chrome.tabs.create({url: 'https://snoozz.me/hello', active: true}, r));
-=======
->>>>>>> 957a041 (change reference to my repo now)
 	if (details && details.reason && details.reason == 'update' && details.previousVersion && details.previousVersion != chrome.runtime.getManifest().version) {
 		if (chrome.runtime.getManifest().version.search(/^\d{1,3}(\.\d{1,3}){1,2}$/) !== 0) return;		// skip if minor version
 		await new Promise(r => chrome.storage.local.set({'updated': true}, r));
@@ -259,7 +255,7 @@ if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 		if (navigator && navigator.onLine === false) {
 			window.addEventListener('online', async _ => {await wakeUpTask()}, {once: true});
 		} else {
-			await wakeUpTask();	
+			await wakeUpTask();
 		}
 	}
 });
