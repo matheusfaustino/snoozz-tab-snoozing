@@ -2,10 +2,10 @@
 	"scripts": {
 		"vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.js','scripts/pouchdb.js')\"",
 		"postinstall": "npm run vendor",
-		"start": "web-ext run",
-		"debug": "web-ext run --devtools",
-		"build": "web-ext build --overwrite-dest",
-		"lint": "web-ext lint"
+		"start": "npm run vendor && web-ext run",
+		"debug": "npm run vendor && web-ext run --devtools",
+		"build": "npm run vendor && web-ext build --overwrite-dest",
+		"lint": "npm run vendor && web-ext lint"
 	},
 	"devDependencies": {
 		"csso": "^5.0.5",
