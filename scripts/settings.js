@@ -484,9 +484,8 @@ async function updateSyncStatus(status) {
 }
 
 function fillAbout() {
-	var emojis = ['🥭', '🌶️', '🍛', '🐅', '🐘', '🦚', '🍄', '☔', '🏏', '🚃', '🛺', '🪁', '🪔'];
-	document.querySelector('.emoji').innerText = emojis[[Math.floor(Math.random() * emojis.length)]];
-	document.getElementById('version').innerText = `Snoozz v${chrome.runtime.getManifest().version}`;
+	var versionEl = document.getElementById('version');
+	if (versionEl) versionEl.innerText = `Snoozz v${chrome.runtime.getManifest().version}`;
 }
 
 window.onload = initialize

@@ -96,11 +96,13 @@ async function wakeMeUp(tabs) {
 
 async function setUpContextMenus(cachedMenus) {
 	var cm = cachedMenus || await getOptions('contextMenu');
-	if (!cm || !cm.length || cm.length === 0) return;
+	if (!cm || !cm.length) return;
 	var choices = await getChoices();
+	cm = cm.filter(id => choices[id]);
+	await chrome.contextMenus.removeAll();
+	if (!cm.length) return;
 	var contexts = getBrowser() === 'firefox' ? ['link', 'tab'] : ['link'];
 	if (cm.length === 1) {
-		await chrome.contextMenus.removeAll();
 		await chrome.contextMenus.create({
 			id: cm[0],
 			contexts: contexts,
@@ -109,8 +111,7 @@ async function setUpContextMenus(cachedMenus) {
 			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${cm[0]}.png`}} : {}
 		});
 	} else {
-		await chrome.contextMenus.removeAll();
-		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz', documentUrlPatterns: ['<all_urls>']})
+		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz', documentUrlPatterns: ['<all_urls>']});
 		for (var o of cm) await chrome.contextMenus.create({
 			parentId: 'snoozz',
 			id: o,
