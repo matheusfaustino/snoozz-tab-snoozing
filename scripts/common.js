@@ -616,7 +616,7 @@ const DEFAULT_OPTIONS = {
 	notifications: 'on',
 	history: 30,
 	badge: 'today',
-	closeDelay: 1000,
+	closeDelay: 1,
 	napCollapsed: [],
 	weekStart: 0,
 	choiceConfig: DEFAULT_CHOICES,
