@@ -518,11 +518,8 @@ async function calculateNextSnoozeTime(data) {
 /* END ASYNC FUNCTIONS */
 var getFaviconUrl = url => {
 	if (url.indexOf('file://') === 0) return '../icons/file.svg'
-	// return `https://icons.duckduckgo.com/ip3/${getHostname(url)}.ico`
-	// return `https://www.google.com/s2/favicons?sz=64&domain_url=${getHostname(url)}`;
-	return `https://besticon.herokuapp.com/icon?url=${getHostname(url)}&size=32..48..64&fallback_icon_color=${getColorForUrl(getHostname(url)).replace('#', '')}`;
+	return '../icons/unknown.png';
 }
-var getColorForUrl = (url = 'snoozz.me') => colours[url.split('').map(c => c.charCodeAt(0)).reduce((a, b) => a + b) % 100];
 
 var getHostname = url => {
 	var h = Object.assign(document.createElement('a'), {href: url}).hostname;
