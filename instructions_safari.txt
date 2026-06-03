@@ -8,9 +8,7 @@ Steps
 2. Run ./safari.sh
 
 Troubleshooting
--	If youre seeing a "Permission Denied" error, please run 
+-	If youre seeing a "Permission Denied" error, please run
 		chmod +x ./safari.sh
-
--	More details can be found in ./docs/safari.md
 
 -	Please email the developer: rohanb10 at gmail.com

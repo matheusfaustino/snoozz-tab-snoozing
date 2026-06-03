@@ -47,7 +47,7 @@ Features:
 
 I initially built this for myself. Had too many tabs open at the end of the day, and didnt want to look at them until work started the next day.
 
-Available on [Chrome](https://chrome.google.com/webstore/detail/snoozz-snooze-tabs-window/lklendgldejcnkkaldoggoapclkepgfb), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/snoozz/), [Edge](https://microsoftedge.microsoft.com/addons/detail/ifofnjpbldmdcbkaalbdgaopphhlopok) and as a custom build for [Safari](https://github.com/rohanb10/snoozz-tab-snoozing/blob/master/docs/safari.md).
+Available on [Chrome](https://chrome.google.com/webstore/detail/snoozz-snooze-tabs-window/lklendgldejcnkkaldoggoapclkepgfb), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/snoozz/) and [Edge](https://microsoftedge.microsoft.com/addons/detail/ifofnjpbldmdcbkaalbdgaopphhlopok).
 
 [Latest Release](https://github.com/rohanb10/snoozz-tab-snoozing/releases/latest/) | [Changelog](https://snoozz.me/changelog) | [Browser Compatibility](https://snoozz.me/compatibility) | [Privacy](https://snoozz.me/privacy)
 
