@@ -8,6 +8,40 @@
 PRs and other ideas are welcome.
 
 ## Changes ##
+**June 2026**
+#### 2.8.1
+- Wait for the CouchDB sync to catch up on browser startup before reopening "On Next Startup" tabs, so tabs another device already opened aren't reopened (falls back after 8s if the server is unreachable; no delay when sync is not configured)
+- Show a single summary notification instead of one per tab when more than 5 tabs wake up at the same time
+
+#### 2.8
+- Configurable popup choices: a settings UI to toggle, reorder, and add your own custom snooze choices
+- Emoji icons for custom choices
+- Export / import now bundles your choice configuration in a versioned envelope (backward compatible with older tab-only exports)
+- Default close delay is now 0s
+- Drop remote favicon fetching (besticon) in favour of local icons
+- Add a GitHub Release workflow (lint + build on tag push)
+- Crash fixes and more reliable context-menu rebuilding
+
+**May 2026**
+#### 2.7
+*The homelab fork begins here — sync your snoozed tabs across devices through your own server.*
+- Replace `chrome.storage` tab persistence with a local PouchDB database
+- Self-hosted CouchDB sync: live replication with conflict resolution (remote wins)
+- New CouchDB settings section and a live sync-status indicator on the settings page
+- Prevent double-waking a tab when another device already opened it
+- Remove all upstream telemetry (analytics stats endpoint, polling option, uninstall ping)
+- Vendor PouchDB via npm and add `web-ext` build scripts
+- Fix tab context-menu snooze (fall back to the tab URL) and clear Firefox lint warnings
+
+**December 2022**
+#### 2.6.1
+- Build script fix
+
+#### 2.6.0
+- Firefox Contextual Identities (container tab) support
+- Edit tab details — url, title, pinned, incognito — for sleeping tabs
+- Use local minifiers in the build script
+
 **May 2022**
 #### 2.5.1
 - New Theme - Hats
