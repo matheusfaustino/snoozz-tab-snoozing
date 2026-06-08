@@ -281,7 +281,6 @@ chrome.runtime.onInstalled.addListener(async details => {
 	}
 });
 chrome.runtime.onStartup.addListener(_ => init(true));
-chrome.runtime.onStartup.addListener(init);
 setUpContextMenus();
 chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask() });
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
