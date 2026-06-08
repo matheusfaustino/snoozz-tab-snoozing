@@ -91,7 +91,14 @@ async function wakeMeUp(tabs) {
 	}
 	await saveTabs(freshTabs);
 
-	for (var s of toOpen) s.tabs ? (s.selection ? await openSelection(s, true) : await openWindow(s, true)) : await openTab(s, null, true);
+	// When more than 5 tabs wake up at once, suppress the per-item notifications
+	// and show a single summary instead.
+	var totalTabCount = toOpen.reduce((n, s) => n + (s.tabs && s.tabs.length ? s.tabs.length : 1), 0);
+	var quiet = totalTabCount > 5;
+
+	for (var s of toOpen) s.tabs ? (s.selection ? await openSelection(s, !quiet) : await openWindow(s, !quiet)) : await openTab(s, null, !quiet);
+
+	if (quiet) createNotification(null, `${totalTabCount} tabs woke up!`, 'icons/logo.svg', `Snoozz reopened ${totalTabCount} tabs across ${toOpen.length} snooze${toOpen.length === 1 ? '' : 's'}.`);
 }
 
 async function setUpContextMenus(cachedMenus) {
