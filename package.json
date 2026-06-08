@@ -1,23 +1,24 @@
 {
-  "scripts": {
-    "vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.js','scripts/pouchdb.js')\"",
-    "postinstall": "npm run vendor",
-    "start": "web-ext run",
-    "build": "web-ext build --overwrite-dest",
-    "lint": "web-ext lint"
-  },
-  "devDependencies": {
-    "csso": "^5.0.5",
-    "csso-cli": "^4.0.1",
-    "eslint": "^8.57.0",
-    "prettier": "^3.3.3",
-    "uglify-js": "^3.17.4",
-    "web-ext": "^10.2.0"
-  },
-  "dependencies": {
-    "pouchdb": "^9.0.0"
-  },
-  "overrides": {
-    "uuid": "^11.1.1"
-  }
+	"scripts": {
+		"vendor": "node -e \"require('fs').copyFileSync('node_modules/pouchdb/dist/pouchdb.js','scripts/pouchdb.js')\"",
+		"postinstall": "npm run vendor",
+		"start": "npm run vendor && web-ext run",
+		"debug": "npm run vendor && web-ext run --devtools",
+		"build": "npm run vendor && web-ext build --overwrite-dest",
+		"lint": "npm run vendor && web-ext lint"
+	},
+	"devDependencies": {
+		"csso": "^5.0.5",
+		"csso-cli": "^4.0.1",
+		"eslint": "^8.57.0",
+		"prettier": "^3.3.3",
+		"uglify-js": "^3.17.4",
+		"web-ext": "^10.3.0"
+	},
+	"dependencies": {
+		"pouchdb": "^9.0.0"
+	},
+	"overrides": {
+		"uuid": "^11.1.1"
+	}
 }

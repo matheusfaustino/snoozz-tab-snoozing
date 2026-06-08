@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener(async msg => {
 	if (msg.close) setTimeout(_ => {
 		if (msg.tabId) chrome.tabs.remove(msg.tabId);
 		if (msg.windowId) chrome.windows.remove(msg.windowId);
-		chrome.runtime.sendMessage({closePopup: true});
+		chrome.runtime.sendMessage({ closePopup: true });
 	}, msg.delay || 2000);
 });
 chrome.storage.onChanged.addListener(async changes => {
@@ -18,12 +18,12 @@ chrome.storage.onChanged.addListener(async changes => {
 	}
 });
 
-localDB.changes({live: true, since: 'now', include_docs: false})
+localDB.changes({ live: true, since: 'now', include_docs: false })
 	.on('change', async _ => {
 		var tabs = await getSnoozedTabs();
 		await updateBadge(tabs);
 		await wakeUpTask(tabs);
-		try { chrome.runtime.sendMessage({updateDash: true}); } catch(e) {}
+		try { chrome.runtime.sendMessage({ updateDash: true }); } catch (e) { }
 	});
 
 if (chrome.notifications) chrome.notifications.onClicked.addListener(async id => {
@@ -34,15 +34,15 @@ if (chrome.notifications) chrome.notifications.onClicked.addListener(async id =>
 		var found = t.tabs ? await findTabAnywhere(null, t.id) : await findTabAnywhere(t.url);
 		if (found && found.id && found.windowId) {
 			try {
-				await chrome.windows.update(found.windowId, {focused: true});
+				await chrome.windows.update(found.windowId, { focused: true });
 				if (t.tabs) {
 					var winTabs = await getTabsInWindow();
-					await chrome.tabs.update(winTabs[0] && winTabs[0].id ? winTabs[0].id : found.id, {active: true});
+					await chrome.tabs.update(winTabs[0] && winTabs[0].id ? winTabs[0].id : found.id, { active: true });
 				} else {
-					await chrome.tabs.update(found.id, {active: true});
+					await chrome.tabs.update(found.id, { active: true });
 				}
 				return;
-			} catch (e) {}
+			} catch (e) { }
 		}
 	}
 	await openExtensionTab('html/nap-room.html');
@@ -53,7 +53,7 @@ async function wakeUpTask(cachedTabs) {
 	if (!tabs || !tabs.length || tabs.length === 0) return;
 	await cleanUpHistory(tabs);
 	if (sleeping(tabs).length === 0) {
-		bgLog(['No tabs are asleep'],['pink'], 'pink');
+		bgLog(['No tabs are asleep'], ['pink'], 'pink');
 		return chrome.alarms.clear('wakeUpTabs');
 	}
 	await setNextAlarm(tabs);
@@ -62,14 +62,14 @@ async function wakeUpTask(cachedTabs) {
 var debounce;
 async function setNextAlarm(tabs) {
 	var next = sleeping(tabs).filter(t => t.wakeUpTime && !t.paused);
-	next = next.length ? next.reduce((t1,t2) => t1.wakeUpTime < t2.wakeUpTime ? t1 : t2) : undefined;
+	next = next.length ? next.reduce((t1, t2) => t1.wakeUpTime < t2.wakeUpTime ? t1 : t2) : undefined;
 	if (!next) return;
 	if (next.wakeUpTime <= dayjs().valueOf()) {
 		clearTimeout(debounce)
 		debounce = setTimeout(_ => wakeMeUp(tabs), 3000)
 	} else {
 		var oneHour = dayjs().add(1, 'h').valueOf();
-		bgLog(['Next tab waking up:', next.id, 'at', dayjs(next.wakeUpTime).format('HH:mm:ss DD/MM/YY')],['','green','','yellow'])
+		bgLog(['Next tab waking up:', next.id, 'at', dayjs(next.wakeUpTime).format('HH:mm:ss DD/MM/YY')], ['', 'green', '', 'yellow'])
 		await createAlarm(next.wakeUpTime < oneHour ? next.wakeUpTime : oneHour, next.wakeUpTime < oneHour);
 	}
 }
@@ -101,49 +101,52 @@ async function wakeMeUp(tabs) {
 	if (quiet) createNotification(null, `${totalTabCount} tabs woke up!`, 'icons/logo.svg', `Snoozz reopened ${totalTabCount} tabs across ${toOpen.length} snooze${toOpen.length === 1 ? '' : 's'}.`);
 }
 
+var contextMenuListenerAdded = false;
 async function setUpContextMenus(cachedMenus) {
 	var cm = cachedMenus || await getOptions('contextMenu');
-	if (!cm || !cm.length || cm.length === 0) return;
+	if (!cm || !cm.length) cm = DEFAULT_OPTIONS.contextMenu;
 	var choices = await getChoices();
+	cm = cm.filter(id => choices[id]);
+	try { await chrome.contextMenus.removeAll(); } catch (e) { }
+	if (!cm.length) return;
 	var contexts = getBrowser() === 'firefox' ? ['link', 'tab'] : ['link'];
 	if (cm.length === 1) {
-		await chrome.contextMenus.removeAll();
 		await chrome.contextMenus.create({
-			id: cm[0], 
-			contexts: contexts, 
-			title: `Snoozz ${choices[cm[0]].label.toLowerCase()}`, 
-			documentUrlPatterns: ['<all_urls>'],
-			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${cm[0]}.png`}} : {}
+			id: cm[0],
+			contexts: contexts,
+			title: `Snoozz ${choices[cm[0]].label.toLowerCase()}`,
+			...(getBrowser() === 'firefox') ? { icons: { 32: `../icons/${cm[0]}.png` } } : {}
 		});
 	} else {
-		await chrome.contextMenus.removeAll();
-		await chrome.contextMenus.create({id: 'snoozz', contexts: contexts, title: 'Snoozz', documentUrlPatterns: ['<all_urls>']})
+		await chrome.contextMenus.create({ id: 'snoozz', contexts: contexts, title: 'Snoozz' });
 		for (var o of cm) await chrome.contextMenus.create({
 			parentId: 'snoozz',
-			id: o, 
+			id: o,
 			contexts: contexts,
-			title: choices[o].menuLabel,
-			...(getBrowser() === 'firefox') ? {icons: {32: `../icons/${o}.png`}} : {}
+			title: choices[o].menuLabel || choices[o].label,
+			...(getBrowser() === 'firefox') ? { icons: { 32: `../icons/${o}.png` } } : {}
 		});
 	}
-	chrome.contextMenus.onClicked.addListener(snoozeInBackground);
-	if (getBrowser() === 'firefox') chrome.contextMenus.onShown.addListener(contextMenuUpdater);
+	if (!contextMenuListenerAdded) {
+		chrome.contextMenus.onClicked.addListener(snoozeInBackground);
+		if (getBrowser() === 'firefox') chrome.contextMenus.onShown.addListener(contextMenuUpdater);
+		contextMenuListenerAdded = true;
+	}
 }
 if (chrome.commands) chrome.commands.onCommand.addListener(async (command, tab) => {
 	if (command === 'nap-room') return openExtensionTab('/html/nap-room.html');
 	tab = tab || await getTabsInWindow(true);
-	await snoozeInBackground({menuItemId: command, pageUrl: tab.url}, tab)
+	await snoozeInBackground({ menuItemId: command, pageUrl: tab.url }, tab)
 })
 
 async function snoozeInBackground(item, tab) {
 	var c = await getChoices(item.menuItemId);
-	
+
 	var isHref = item.linkUrl && item.linkUrl.length;
 	var url = isHref ? item.linkUrl : (item.pageUrl || (tab && tab.url));
-	if(!isValid({url})) return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The link you are trying to snooze is invalid.', true);
+	if (!isValid({ url })) return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The link you are trying to snooze is invalid.', true);
 
 	var snoozeTime = c && c.time;
-	if (c && ['weekend', 'monday', 'week', 'month'].includes(item.menuItemId)) snoozeTime = await getTimeWithModifier(item.menuItemId);
 	if (!snoozeTime || c.disabled || dayjs().isAfter(dayjs(snoozeTime))) {
 		return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The time you have selected is invalid.', true);
 	}
@@ -153,21 +156,21 @@ async function snoozeInBackground(item, tab) {
 	var wakeUpTime = snoozeTime.valueOf();
 	var pinned = !isHref && tab.pinned ? tab.pinned : undefined;
 	var cookieStoreId = tab.cookieStoreId;
-	var assembledTab = Object.assign(item, {url, title, pinned, cookieStoreId, startUp, wakeUpTime})
+	var assembledTab = Object.assign(item, { url, title, pinned, cookieStoreId, startUp, wakeUpTime })
 
 	var snoozed = await snoozeTab(item.menuItemId === 'startup' ? 'startup' : snoozeTime.valueOf(), assembledTab);
-	
+
 	var msg = `${!isHref ? tab.title : getHostname(url)} will wake up ${formatSnoozedUntil(assembledTab)}.`
 	createNotification(snoozed.tabDBId, 'A new tab is now napping :)', 'icons/logo.svg', msg, true);
 
 	if (!isHref) await chrome.tabs.remove(tab.id);
-	await chrome.runtime.sendMessage({updateDash: true});
+	await chrome.runtime.sendMessage({ updateDash: true });
 }
 
 async function contextMenuUpdater(menu) {
 	var choices = await getChoices();
 	for (c of menu.menuIds) {
-		if (choices[c]) await chrome.contextMenus.update(c, {enabled: !choices[c].disabled});
+		if (choices[c]) await chrome.contextMenus.update(c, { enabled: !choices[c].disabled });
 	}
 	await chrome.contextMenus.refresh();
 }
@@ -176,7 +179,7 @@ async function cleanUpHistory(tabs) {
 	var h = await getOptions('history') || 365;
 	var tabsToDelete = tabs.filter(t => h && t.opened && dayjs().isAfter(dayjs(t.opened).add(h, 'd')));
 	if (tabsToDelete.length === 0) return;
-	bgLog(['Deleting old tabs automatically:',tabsToDelete.map(t => t.id)],['','red'], 'red')
+	bgLog(['Deleting old tabs automatically:', tabsToDelete.map(t => t.id)], ['', 'red'], 'red')
 	await saveTabs(tabs.filter(t => !tabsToDelete.includes(t)));
 }
 
@@ -185,13 +188,13 @@ var _firstPullResolve = null;
 var firstPull = null;
 
 async function resolveConflictRemoteWins(docId) {
-	var doc = await localDB.get(docId, {conflicts: true});
+	var doc = await localDB.get(docId, { conflicts: true });
 	if (!doc._conflicts || !doc._conflicts.length) return;
-	var toDelete = doc._conflicts.map(rev => ({_id: docId, _rev: rev, _deleted: true}));
+	var toDelete = doc._conflicts.map(rev => ({ _id: docId, _rev: rev, _deleted: true }));
 	await localDB.bulkDocs(toDelete);
 }
 
-var setSyncStatus = s => chrome.storage.local.set({snoozzSyncStatus: s});
+var setSyncStatus = s => chrome.storage.local.set({ snoozzSyncStatus: s });
 
 async function setupCouchSync() {
 	if (_syncHandler) { _syncHandler.cancel(); _syncHandler = null; }
@@ -205,14 +208,14 @@ async function setupCouchSync() {
 	var remoteDB = new PouchDB(remoteUrl);
 	setSyncStatus('connecting');
 	firstPull = new Promise(r => _firstPullResolve = r);
-	_syncHandler = PouchDB.sync(localDB, remoteDB, {live: true, retry: true})
+	_syncHandler = PouchDB.sync(localDB, remoteDB, { live: true, retry: true })
 		.on('change', async info => {
 			if (info.direction !== 'pull') return;
 			for (var doc of info.change.docs) {
 				try {
-					var d = await localDB.get(doc._id, {conflicts: true});
+					var d = await localDB.get(doc._id, { conflicts: true });
 					if (d._conflicts && d._conflicts.length) await resolveConflictRemoteWins(doc._id);
-				} catch(e) {}
+				} catch (e) { }
 			}
 		})
 		.on('active', _ => setSyncStatus('syncing'))
@@ -249,11 +252,11 @@ async function setUpExtension() {
 }
 function sendToLogs([which, p1]) {
 	try {
-		if (['tab', 'window', 'group', 'selection'].includes(which)) bgLog(['Snoozing a new ' + which, p1.id, 'till', dayjs(p1.wakeUpTime).format('HH:mm:ss DD/MM/YY')],['', 'green', '', 'yellow'],'green')
+		if (['tab', 'window', 'group', 'selection'].includes(which)) bgLog(['Snoozing a new ' + which, p1.id, 'till', dayjs(p1.wakeUpTime).format('HH:mm:ss DD/MM/YY')], ['', 'green', '', 'yellow'], 'green')
 		if (which === 'history') bgLog(['Sending tabs to history:', p1.join(', ')], ['', 'green'], 'blue');
 		if (which === 'manually') bgLog(['Waking up tabs manually:', p1.join(', ')], ['', 'green'], 'blue');
 		if (which === 'delete') bgLog(['Deleting tabs manually:', p1.join(', ')], ['', 'red'], 'red');
-	} catch (e) {console.log('logError', e, which, p1)}
+	} catch (e) { console.log('logError', e, which, p1) }
 }
 
 async function init(isStartup) {
@@ -271,21 +274,22 @@ async function init(isStartup) {
 
 chrome.runtime.onInstalled.addListener(async details => {
 	setUpExtension();
-	if (details && details.reason && details.reason == 'install') await new Promise(r => chrome.tabs.create({url: 'https://snoozz.me/hello', active: true}, r));
 	if (details && details.reason && details.reason == 'update' && details.previousVersion && details.previousVersion != chrome.runtime.getManifest().version) {
 		if (chrome.runtime.getManifest().version.search(/^\d{1,3}(\.\d{1,3}){1,2}$/) !== 0) return;		// skip if minor version
-		await new Promise(r => chrome.storage.local.set({'updated': true}, r));
+		await new Promise(r => chrome.storage.local.set({ 'updated': true }, r));
 		if (chrome.notifications) createNotification(null, 'Snoozz has been updated', 'icons/logo.svg', 'Click here to see what\'s new.', true);
 	}
 });
 chrome.runtime.onStartup.addListener(_ => init(true));
-chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask()});
+chrome.runtime.onStartup.addListener(init);
+setUpContextMenus();
+chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask() });
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {
 		if (navigator && navigator.onLine === false) {
-			window.addEventListener('online', async _ => {await wakeUpTask()}, {once: true});
+			window.addEventListener('online', async _ => { await wakeUpTask() }, { once: true });
 		} else {
-			await wakeUpTask();	
+			await wakeUpTask();
 		}
 	}
 });

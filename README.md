@@ -47,7 +47,7 @@ Features:
 
 I initially built this for myself. Had too many tabs open at the end of the day, and didnt want to look at them until work started the next day.
 
-Available on [Chrome](https://chrome.google.com/webstore/detail/snoozz-snooze-tabs-window/lklendgldejcnkkaldoggoapclkepgfb), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/snoozz/), [Edge](https://microsoftedge.microsoft.com/addons/detail/ifofnjpbldmdcbkaalbdgaopphhlopok) and as a custom build for [Safari](https://github.com/rohanb10/snoozz-tab-snoozing/blob/master/docs/safari.md).
+Available on [Chrome](https://chrome.google.com/webstore/detail/snoozz-snooze-tabs-window/lklendgldejcnkkaldoggoapclkepgfb), [Firefox](https://addons.mozilla.org/en-US/firefox/addon/snoozz/) and [Edge](https://microsoftedge.microsoft.com/addons/detail/ifofnjpbldmdcbkaalbdgaopphhlopok).
 
 [Latest Release](https://github.com/rohanb10/snoozz-tab-snoozing/releases/latest/) | [Changelog](https://snoozz.me/changelog) | [Browser Compatibility](https://snoozz.me/compatibility) | [Privacy](https://snoozz.me/privacy)
 
@@ -56,13 +56,7 @@ Related repos: [Snoozz Website](https://github.com/rohanb10/snoozz-web) | [Snooz
 ## How to generate extension package
 
 1. `npm install` dependencies.
-1. Requires direnv or `npm bin` (most likely `./node_modules/.bin`) to be in the path.
-1. Install python dependencies `shell` and `re` (`python3 -m pip install ...`).
-1. Run `python3 build.py`.
-
-Tested on macos 13.0, Python 3.9.6, pip 22.3.1, node v16.13.0, npm 8.1.0.
-
-Source code is packed for review with `zip -r -FS ../source-code.zip * --exclude '*.git*' --exclude '*node_modules*'`.
+1. Run `npm run build`. The packaged extension is written to `web-ext-artifacts/`.
 
 ## Colours
 

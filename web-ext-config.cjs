@@ -1,8 +1,5 @@
 module.exports = {
 	ignoreFiles: [
-		'build.py',
-		'safari.sh',
-		'instructions_safari.txt',
 		'docs',
 		'node_modules',
 		'package.json',
