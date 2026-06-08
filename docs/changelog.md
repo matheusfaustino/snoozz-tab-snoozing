@@ -9,6 +9,9 @@ PRs and other ideas are welcome.
 
 ## Changes ##
 **June 2026**
+#### 2.8.2
+- Fix context menus being set up twice on startup (top-level load + `init`), which could race two rebuild cycles and throw a duplicate-id error
+
 #### 2.8.1
 - Wait for the CouchDB sync to catch up on browser startup before reopening "On Next Startup" tabs, so tabs another device already opened aren't reopened (falls back after 8s if the server is unreachable; no delay when sync is not configured)
 - Show a single summary notification instead of one per tab when more than 5 tabs wake up at the same time

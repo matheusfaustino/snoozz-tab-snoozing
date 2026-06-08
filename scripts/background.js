@@ -269,7 +269,9 @@ async function init(isStartup) {
 		await saveTabs(allTabs);
 	}
 	await wakeUpTask();
-	await setUpContextMenus();
+	// Context menus are set up at top-level on every background load (and rebuilt on
+	// option changes), so init() must not also call setUpContextMenus — doing both
+	// races two removeAll()/create() cycles and can throw a duplicate-id error.
 }
 
 chrome.runtime.onInstalled.addListener(async details => {
