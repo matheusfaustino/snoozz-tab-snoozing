@@ -174,6 +174,8 @@ async function cleanUpHistory(tabs) {
 }
 
 var _syncHandler = null;
+var _firstPullResolve = null;
+var firstPull = null;
 
 async function resolveConflictRemoteWins(docId) {
 	var doc = await localDB.get(docId, {conflicts: true});
@@ -195,6 +197,7 @@ async function setupCouchSync() {
 	var remoteUrl = proto + auth + host + '/' + cfg.database;
 	var remoteDB = new PouchDB(remoteUrl);
 	setSyncStatus('connecting');
+	firstPull = new Promise(r => _firstPullResolve = r);
 	_syncHandler = PouchDB.sync(localDB, remoteDB, {live: true, retry: true})
 		.on('change', async info => {
 			if (info.direction !== 'pull') return;
@@ -206,9 +209,25 @@ async function setupCouchSync() {
 			}
 		})
 		.on('active', _ => setSyncStatus('syncing'))
-		.on('paused', err => setSyncStatus(err ? 'retrying' : 'connected'))
+		.on('paused', err => {
+			setSyncStatus(err ? 'retrying' : 'connected');
+			// First time the live sync catches up (no error) the local DB reflects the server.
+			if (!err && _firstPullResolve) { _firstPullResolve(); _firstPullResolve = null; }
+		})
 		.on('error', e => { setSyncStatus('error'); bgLog(['CouchDB sync error:', e.message || e], ['', 'red'], 'red'); });
 	bgLog(['CouchDB sync started:', remoteUrl.replace(/:([^@]+)@/, ':***@')], ['', 'green'], 'green');
+}
+
+// Start the CouchDB sync (if configured) and wait for the first pull from the
+// server to complete, or until timeoutMs elapses — whichever comes first. This
+// lets browser-startup tab opening reflect what other devices already did.
+async function waitForInitialSync(timeoutMs = 8000) {
+	var cfg = await getOptions('couchdb');
+	if (!cfg || !cfg.url || !cfg.database) return;
+	await setupCouchSync();
+	if (!firstPull) return;
+	bgLog(['Waiting for first sync with server before waking startup tabs'], ['yellow'], 'yellow');
+	await Promise.race([firstPull, new Promise(r => setTimeout(r, timeoutMs))]);
 }
 
 async function setUpExtension() {
@@ -230,7 +249,10 @@ function sendToLogs([which, p1]) {
 	} catch (e) {console.log('logError', e, which, p1)}
 }
 
-async function init() {
+async function init(isStartup) {
+	// On browser startup, give the server sync a chance to pull remote state first
+	// so we don't reopen startup tabs another device already handled.
+	if (isStartup) await waitForInitialSync();
 	var allTabs = await getSnoozedTabs();
 	if (allTabs && allTabs.length && allTabs.some(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened)) {
 		allTabs.filter(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened).forEach(t => t.wakeUpTime = dayjs().subtract(10, 's').valueOf());
@@ -249,7 +271,7 @@ chrome.runtime.onInstalled.addListener(async details => {
 		if (chrome.notifications) createNotification(null, 'Snoozz has been updated', 'icons/logo.svg', 'Click here to see what\'s new.', true);
 	}
 });
-chrome.runtime.onStartup.addListener(init);
+chrome.runtime.onStartup.addListener(_ => init(true));
 chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask()});
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {
