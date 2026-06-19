@@ -3,12 +3,12 @@ var localDB = typeof PouchDB !== 'undefined' ? new PouchDB('snoozz_tabs') : null
 function getBrowser() {
 	if (!!navigator.userAgent.match(/safari/i) && !navigator.userAgent.match(/chrome/i) && typeof document.body.style.webkitFilter !== 'undefined') return 'safari';
 	if (!!window.sidebar) return 'firefox';
-	return 'chrome';
+	return 'firefox';
 }
 /*	ASYNCHRONOUS FUNCTIONS	*/
 /*	GET 	*/
 async function getSnoozedTabs(ids) {
-	var result = await localDB.allDocs({include_docs: true});
+	var result = await localDB.allDocs({ include_docs: true });
 	var tabs = result.rows.map(r => r.doc).filter(d => d && d.id);
 	if (!ids || (ids.length && ids.length === 0)) return tabs;
 	var found = tabs.filter(s => s.id && (ids.length ? ids.includes(s.id) : ids === s.id));
@@ -19,31 +19,31 @@ async function getOptions(keys) {
 	if (!p.snoozedOptions) return [];
 	if (!keys) return p.snoozedOptions;
 	if (typeof keys === 'string') return p.snoozedOptions[keys];
-	return Object.keys(p.snoozedOptions).filter(k => keys.includes(k)).reduce((o, k) => {o[k] = p.snoozedOptions[k];return o},{});
-	
+	return Object.keys(p.snoozedOptions).filter(k => keys.includes(k)).reduce((o, k) => { o[k] = p.snoozedOptions[k]; return o }, {});
+
 }
 async function getTabsInWindow(active) {
 	if (getBrowser() === 'safari') active = true;
-	var p = new Promise(r => chrome.tabs.query({active: active, currentWindow: true}, r));
+	var p = new Promise(r => chrome.tabs.query({ active: active, currentWindow: true }, r));
 	if (!active) return p;
 	var tabs = await p;
 	return tabs[0];
 }
 async function getAllWindows() {
-	return new Promise(r => chrome.windows.getAll({windowTypes: ['normal']}, r));
+	return new Promise(r => chrome.windows.getAll({ windowTypes: ['normal'] }, r));
 }
 async function getTabId(url) {
 	var tabsInWindow = await getTabsInWindow();
 	if (!tabsInWindow.length) tabsInWindow = [tabsInWindow];
-	var foundTab  = tabsInWindow.find(t => t.url === url);
-	return foundTab ? parseInt(foundTab.id) : false; 
+	var foundTab = tabsInWindow.find(t => t.url === url);
+	return foundTab ? parseInt(foundTab.id) : false;
 }
 async function findTabAnywhere(url, tabDBId) {
 	var wins = await getAllWindows(), found = false;
 	if (!wins || !wins.length) return found;
 	for (var wid of wins.map(w => w.id)) {
 		if (found) return;
-		var tabs = await new Promise(r => chrome.tabs.query({windowId: wid}, r));
+		var tabs = await new Promise(r => chrome.tabs.query({ windowId: wid }, r));
 		if (url && tabs && tabs.some(t => t.url === url)) return found = tabs.find(t => t.url === url);
 		if (!url && tabdDBId && tabs && tabs.some(t => t.url.indexOf(tabDBId) > -1)) return found = tabs.find(t => t.url.indexOf(tabDBId) > -1);
 	}
@@ -73,28 +73,28 @@ async function saveOption(key, val) {
 }
 async function saveOptions(o) {
 	if (!o) return;
-	return new Promise(r => chrome.storage.local.set({'snoozedOptions': o}, r));
+	return new Promise(r => chrome.storage.local.set({ 'snoozedOptions': o }, r));
 }
 async function saveTab(t) {
 	if (!t || !t.id) return;
-	var doc = Object.assign({}, t, {_id: t.id});
+	var doc = Object.assign({}, t, { _id: t.id });
 	if (!doc._rev) {
-		try { var existing = await localDB.get(t.id); doc._rev = existing._rev; } catch(e) {}
+		try { var existing = await localDB.get(t.id); doc._rev = existing._rev; } catch (e) { }
 	}
 	await localDB.put(doc);
 }
 async function saveTabs(tabs) {
 	if (!tabs) return;
-	var existing = await localDB.allDocs({include_docs: false});
+	var existing = await localDB.allDocs({ include_docs: false });
 	var revMap = {};
 	existing.rows.forEach(r => { revMap[r.id] = r.value.rev; });
 	var tabIds = new Set(tabs.map(t => t.id));
 	// Preserve non-tab docs (like device:<name> registry entries) when rewriting the tab set.
 	var toDelete = existing.rows
 		.filter(r => !tabIds.has(r.id) && r.id.indexOf('device:') !== 0)
-		.map(r => ({_id: r.id, _rev: r.value.rev, _deleted: true}));
+		.map(r => ({ _id: r.id, _rev: r.value.rev, _deleted: true }));
 	var toUpsert = tabs.map(t => {
-		var doc = Object.assign({}, t, {_id: t.id});
+		var doc = Object.assign({}, t, { _id: t.id });
 		if (!doc._rev && revMap[t.id]) doc._rev = revMap[t.id];
 		return doc;
 	});
@@ -114,20 +114,20 @@ async function ensureDeviceName() {
 }
 async function getKnownDevices() {
 	if (!localDB) return [];
-	var result = await localDB.allDocs({include_docs: true, startkey: 'device:', endkey: 'device:￿'});
+	var result = await localDB.allDocs({ include_docs: true, startkey: 'device:', endkey: 'device:￿' });
 	return result.rows.map(r => r.doc).filter(d => d && d.name).sort((a, b) => a.name.localeCompare(b.name));
 }
 async function upsertDeviceRegistry(name) {
 	if (!localDB || !name) return;
 	var id = 'device:' + name;
-	var doc = {_id: id, name: name, lastSeen: dayjs().valueOf()};
-	try { var existing = await localDB.get(id); doc._rev = existing._rev; } catch (e) {}
+	var doc = { _id: id, name: name, lastSeen: dayjs().valueOf() };
+	try { var existing = await localDB.get(id); doc._rev = existing._rev; } catch (e) { }
 	await localDB.put(doc);
 }
 async function removeDeviceRegistry(name) {
 	if (!localDB || !name) return;
 	var id = 'device:' + name;
-	try { var existing = await localDB.get(id); await localDB.remove(existing); } catch (e) {}
+	try { var existing = await localDB.get(id); await localDB.remove(existing); } catch (e) { }
 }
 async function renameDeviceOnTabs(oldName, newName) {
 	if (!oldName || !newName || oldName === newName) return;
@@ -139,18 +139,18 @@ async function renameDeviceOnTabs(oldName, newName) {
 }
 /*	CREATE 	*/
 async function createAlarm(when, willWakeUpATab) {
-	bgLog(['Next Alarm at', dayjs(when).format('HH:mm:ss DD/MM/YY')], ['', willWakeUpATab ? 'yellow':'white'])
-	await chrome.alarms.create('wakeUpTabs', {when});
+	bgLog(['Next Alarm at', dayjs(when).format('HH:mm:ss DD/MM/YY')], ['', willWakeUpATab ? 'yellow' : 'white'])
+	await chrome.alarms.create('wakeUpTabs', { when });
 }
 async function createNotification(id, title, imgUrl, message, force) {
 	var n = await getOptions('notifications');
-	if (n === 'sound') try { new Audio(chrome.runtime.getURL('sounds/appointed.mp3')).play()} catch (e){}
+	if (n === 'sound') try { new Audio(chrome.runtime.getURL('sounds/appointed.mp3')).play() } catch (e) { }
 	if (!chrome.notifications || (n && n === 'off' && !force)) return;
-	await chrome.notifications.create(id, {type: 'basic', iconUrl: chrome.runtime.getURL(imgUrl), title, message});
+	await chrome.notifications.create(id, { type: 'basic', iconUrl: chrome.runtime.getURL(imgUrl), title, message });
 }
 async function createWindow(tabId, incognito) {
-	if (tabId) return new Promise(r => chrome.windows.create({url: `/html/rise-and-shine.html#${tabId}`}, r));
-	return new Promise(r => chrome.windows.create({incognito}, r));
+	if (tabId) return new Promise(r => chrome.windows.create({ url: `/html/rise-and-shine.html#${tabId}` }, r));
+	return new Promise(r => chrome.windows.create({ incognito }, r));
 }
 
 /*	CONFIGURE	*/
@@ -173,9 +173,9 @@ async function updateBadge(cachedTabs, cachedBadge) {
 	var badge = cachedBadge || await getOptions('badge');
 	var tabs = cachedTabs || await getSnoozedTabs();
 	tabs = sleeping(tabs);
-	if (tabs.length > 0 && badge && ['all','today'].includes(badge)) num = badge === 'today' ? today(tabs).length : tabs.length;
-	chrome.browserAction.setBadgeText({text: num > 0 ? num.toString() : ''});
-	chrome.browserAction.setBadgeBackgroundColor({color: '#0072BC'});
+	if (tabs.length > 0 && badge && ['all', 'today'].includes(badge)) num = badge === 'today' ? today(tabs).length : tabs.length;
+	chrome.browserAction.setBadgeText({ text: num > 0 ? num.toString() : '' });
+	chrome.browserAction.setBadgeBackgroundColor({ color: '#0072BC' });
 }
 
 /*	OPEN 	*/
@@ -186,15 +186,15 @@ async function openExtensionTab(url) {
 	var tabs = await getTabsInWindow();
 	if (getBrowser() === 'safari' && !tabs.length) tabs = [tabs];
 	var extTabs = tabs.filter(t => isDefault(t));
-	if (extTabs.length === 1){chrome.tabs.update(extTabs[0].id, {url, active: true})}
+	if (extTabs.length === 1) { chrome.tabs.update(extTabs[0].id, { url, active: true }) }
 	else if (extTabs.length > 1) {
 		var activeTab = extTabs.some(et => et.active) ? extTabs.find(et => et.active) : extTabs.reduce((t1, t2) => t1.index > t2.index ? t1 : t2);
-		chrome.tabs.update(activeTab.id, {url, active: true});
-		chrome.tabs.remove(extTabs.filter(et => et !== activeTab).map(t => t.id))		
+		chrome.tabs.update(activeTab.id, { url, active: true });
+		chrome.tabs.remove(extTabs.filter(et => et !== activeTab).map(t => t.id))
 	} else {
 		var activeTab = tabs.find(t => t.active);
-		if (activeTab && ['New Tab', 'Start Page'].includes(activeTab.title)) {chrome.tabs.update(activeTab.id, {url})}
-		else {chrome.tabs.create({url})}
+		if (activeTab && ['New Tab', 'Start Page'].includes(activeTab.title)) { chrome.tabs.update(activeTab.id, { url }) }
+		else { chrome.tabs.create({ url }) }
 	}
 }
 
@@ -203,11 +203,11 @@ async function openTab(tab, windowId, automatic = false) {
 	var cookieStoreId = tab.cookieStoreId ? { cookieStoreId: tab.cookieStoreId } : {};
 	if (tab.incognito) {
 		var w = windows.find(i => i.incognito) || await createWindow(undefined, t.incognito);
-		await new Promise(r => chrome.tabs.create({url: tab.url, active: false, pinned: tab.pinned, ...cookieStoreId, windowId: w.id}, r));
+		await new Promise(r => chrome.tabs.create({ url: tab.url, active: false, pinned: tab.pinned, ...cookieStoreId, windowId: w.id }, r));
 	} else if (!windows || !windows.filter(w => !w.incognito).length) {
-		await new Promise(r => chrome.windows.create({url: tab.url, ...cookieStoreId}, r));
+		await new Promise(r => chrome.windows.create({ url: tab.url, ...cookieStoreId }, r));
 	} else {
-		await new Promise(r => chrome.tabs.create({url: tab.url, active: false, pinned: tab.pinned, ...cookieStoreId, windowId}, r));	
+		await new Promise(r => chrome.tabs.create({ url: tab.url, active: false, pinned: tab.pinned, ...cookieStoreId, windowId }, r));
 	}
 	if (!automatic) return;
 	var msg = `${tab.title} -- snoozed ${dayjs(tab.timeCreated).fromNow()}`;
@@ -240,15 +240,15 @@ async function openWindow(t, automatic = false) {
 	var loadingCount = 0;
 	chrome.tabs.onUpdated.addListener(async function cleanTabsAfterLoad(id, state, title) {
 		if (loadingCount > t.tabs.length) {
-			chrome.runtime.sendMessage({startMapping: true});
+			chrome.runtime.sendMessage({ startMapping: true });
 			chrome.tabs.onUpdated.removeListener(cleanTabsAfterLoad)
 		}
-		if (state.status === 'loading' && state.url) loadingCount ++;
+		if (state.status === 'loading' && state.url) loadingCount++;
 	});
 
 	for (var s of t.tabs) await openTab(s, targetWindowID);
-	chrome.windows.update(targetWindowID, {focused: true});
-	
+	chrome.windows.update(targetWindowID, { focused: true });
+
 	if (!automatic) return;
 	var msg = `This window was put to sleep ${dayjs(t.timeCreated).fromNow()}`;
 	createNotification(t.id, 'A window woke up!', 'icons/logo.svg', msg);
@@ -259,11 +259,11 @@ async function editSnoozed(tabId, snoozeTime, duplicating) {
 	var t = await getSnoozedTabs(tabId);
 	['startUp', 'opened', 'deleted', 'repeat', 'paused'].forEach(prop => delete t[prop]);
 	t.wakeUpTime = snoozeTime === 'startup' ? dayjs().add(20, 'y').valueOf() : dayjs(snoozeTime).valueOf(),
-	t.timeCreated = dayjs().valueOf();
+		t.timeCreated = dayjs().valueOf();
 	t.id = duplicating ? getRandomId() : t.id;
 	if (snoozeTime === 'startup') t.startUp = true;
 	await saveTab(t);
-	return duplicating ? {duped: true} : {edited: true}
+	return duplicating ? { duped: true } : { edited: true }
 }
 
 async function editRecurringSnoozed(tabId, data, duplicating) {
@@ -275,10 +275,10 @@ async function editRecurringSnoozed(tabId, data, duplicating) {
 	t.repeat = data;
 	t.id = duplicating ? getRandomId() : t.id;
 	await saveTab(t);
-	return duplicating ? {duped: true} : {edited: true}
+	return duplicating ? { duped: true } : { edited: true }
 }
 
-async function editSnoozeRecurring(tabId, data, ) {
+async function editSnoozeRecurring(tabId, data,) {
 	var t = await getSnoozedTabs(tabId);
 	['startUp', 'opened', 'deleted', 'repeat', 'paused'].forEach(prop => delete t[prop]);
 	if (data.repeat === 'startup') t.startUp = true;
@@ -287,7 +287,7 @@ async function editSnoozeRecurring(tabId, data, ) {
 	t.repeat = data;
 	t.paused = false;
 	await saveTab(t);
-	return {edited: true}
+	return { edited: true }
 }
 
 /*		SNOOZING 	*/
@@ -298,18 +298,18 @@ async function snoozeTab(snoozeTime, overrideTab, targetDevice) {
 		id: getRandomId(),
 		title: activeTab.title || getBetterUrl(activeTab.url),
 		url: activeTab.url,
-		...activeTab.pinned ? {pinned: true} : {},
-		...activeTab.incognito ? {incognito: true} : {},
-		...activeTab.cookieStoreId ? {cookieStoreId: activeTab.cookieStoreId} : {},
+		...activeTab.pinned ? { pinned: true } : {},
+		...activeTab.incognito ? { incognito: true } : {},
+		...activeTab.cookieStoreId ? { cookieStoreId: activeTab.cookieStoreId } : {},
 		wakeUpTime: snoozeTime === 'startup' ? dayjs().add(20, 'y').valueOf() : dayjs(snoozeTime).valueOf(),
 		timeCreated: dayjs().valueOf(),
 	}
 	if (snoozeTime === 'startup') sleepyTab.startUp = true;
 	if (targetDevice) sleepyTab.targetDevice = targetDevice;
 	await saveTab(sleepyTab);
-	chrome.runtime.sendMessage({logOptions: ['tab', sleepyTab, snoozeTime]});
+	chrome.runtime.sendMessage({ logOptions: ['tab', sleepyTab, snoozeTime] });
 	var tabId = activeTab.id || await getTabId(activeTab.url);
-	return {tabId, tabDBId: sleepyTab.id}
+	return { tabId, tabDBId: sleepyTab.id }
 }
 
 async function snoozeWindow(snoozeTime, isASelection, targetDevice) {
@@ -319,14 +319,14 @@ async function snoozeWindow(snoozeTime, isASelection, targetDevice) {
 	if (validTabs.length === 0) return {};
 	if (validTabs.length === 1) {
 		await snoozeTab(snoozeTime, validTabs[0], targetDevice)
-		return {windowId: tabsInWindow.find(w => w.active).windowId};
+		return { windowId: tabsInWindow.find(w => w.active).windowId };
 	}
 	var sleepyGroup = {
 		id: getRandomId(),
 		wakeUpTime: snoozeTime === 'startup' ? dayjs().add(20, 'y').valueOf() : dayjs(snoozeTime).valueOf(),
 		timeCreated: dayjs().valueOf(),
 		title: `${getTabCountLabel(validTabs)} from ${getSiteCountLabel(validTabs)}`,
-		...(validTabs.some(v => v.incognito)) ? {incognito: true} : {},
+		...(validTabs.some(v => v.incognito)) ? { incognito: true } : {},
 	}
 	if (isASelection) {
 		sleepyGroup.title = sleepyGroup.title.replace(' tab', ' selected tab');
@@ -339,13 +339,13 @@ async function snoozeWindow(snoozeTime, isASelection, targetDevice) {
 		tabs: validTabs.map(t => ({
 			title: t.title,
 			url: t.url,
-			...t.pinned ? {pinned: true} : {},
-			...t.cookieStoreId ? {cookieStoreId: t.cookieStoreId} : {}
+			...t.pinned ? { pinned: true } : {},
+			...t.cookieStoreId ? { cookieStoreId: t.cookieStoreId } : {}
 		}))
 	});
 	await saveTab(sleepyGroup);
-	chrome.runtime.sendMessage({logOptions: [isASelection ? 'selection' : 'window', sleepyGroup, snoozeTime]});	
-	return isASelection ? {tabId: tabsInWindow.filter(t => t.highlighted).map(t => t.id)} : {windowId: tabsInWindow.find(w => w.active).windowId};
+	chrome.runtime.sendMessage({ logOptions: [isASelection ? 'selection' : 'window', sleepyGroup, snoozeTime] });
+	return isASelection ? { tabId: tabsInWindow.filter(t => t.highlighted).map(t => t.id) } : { windowId: tabsInWindow.find(w => w.active).windowId };
 }
 
 async function snoozeRecurring(target, data, targetDevice) {
@@ -377,8 +377,8 @@ async function snoozeRecurring(target, data, targetDevice) {
 		Object.assign(sleepyObj, {
 			title: activeTab.title || getBetterUrl(activeTab.url),
 			url: activeTab.url,
-			...activeTab.pinned ? {pinned: true} : {},
-			...activeTab.cookieStoreId ? {cookieStoreId: activeTab.cookieStoreId} : {}
+			...activeTab.pinned ? { pinned: true } : {},
+			...activeTab.cookieStoreId ? { cookieStoreId: activeTab.cookieStoreId } : {}
 		});
 	} else {
 		Object.assign(sleepyObj, {
@@ -386,17 +386,17 @@ async function snoozeRecurring(target, data, targetDevice) {
 			tabs: validTabs.map(t => ({
 				title: t.title,
 				url: t.url,
-				...t.pinned ? {pinned: true} : {},
-				...t.cookieStoreId ? {cookieStoreId: t.cookieStoreId} : {}
+				...t.pinned ? { pinned: true } : {},
+				...t.cookieStoreId ? { cookieStoreId: t.cookieStoreId } : {}
 			}))
 		})
 	}
 	console.log(sleepyObj);
 	await saveTab(sleepyObj);
-	chrome.runtime.sendMessage({logOptions: [target, sleepyObj, sleepyObj.wakeUpTime]});
-	if (target === 'tab') return {tabId: activeTab.id};
-	if (target === 'window') return {windowId: validTabs.find(w => w.active).windowId};
-	if (target === 'selection') return {tabId: validTabs.map(t => t.id)};
+	chrome.runtime.sendMessage({ logOptions: [target, sleepyObj, sleepyObj.wakeUpTime] });
+	if (target === 'tab') return { tabId: activeTab.id };
+	if (target === 'window') return { windowId: validTabs.find(w => w.active).windowId };
+	if (target === 'selection') return { tabId: validTabs.map(t => t.id) };
 
 }
 
@@ -418,7 +418,7 @@ async function getChoices(which) {
 async function saveChoiceModifier(choiceId, modifier) {
 	var o = await getOptions();
 	if (!o || Array.isArray(o)) o = {};
-	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, { params: Object.assign({}, c.params) }));
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice && choice.params) choice.params.modifier = modifier;
 	o.choiceConfig = choices;
@@ -428,7 +428,7 @@ async function saveChoiceModifier(choiceId, modifier) {
 async function saveChoiceDevice(choiceId, device) {
 	var o = await getOptions();
 	if (!o || Array.isArray(o)) o = {};
-	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, { params: Object.assign({}, c.params) }));
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice) {
 		choice.params = choice.params || {};
@@ -478,19 +478,19 @@ var getFaviconUrl = url => {
 }
 
 var getHostname = url => {
-	var h = Object.assign(document.createElement('a'), {href: url}).hostname;
+	var h = Object.assign(document.createElement('a'), { href: url }).hostname;
 	return (h && h.length) ? h : undefined;
 }
 
 var getBetterUrl = url => {
-	var a = Object.assign(document.createElement('a'), {href: url});
+	var a = Object.assign(document.createElement('a'), { href: url });
 	return a.hostname + a.pathname;
 }
 
 var getTabCountLabel = tabs => `${tabs.length} tab${tabs.length === 1 ? '' : 's'}`
 
 var getSiteCountLabel = tabs => {
-	var count = tabs.map(t => getHostname(t.url)).filter((v,i,s) => s.indexOf(v) === i).length;
+	var count = tabs.map(t => getHostname(t.url)).filter((v, i, s) => s.indexOf(v) === i).length;
 	return count > 1 ? `${count} different websites` : `${count} website`;
 }
 
@@ -527,7 +527,7 @@ var isSameYear = (a, b) => dayjs(a).year() === dayjs(b).year();
 var capitalize = s => s.toLowerCase().split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
 var wrapInDiv = (attr, ...nodes) => {
-	var div = Object.assign(document.createElement('div'), typeof attr === 'string' ? {className: attr} : attr);
+	var div = Object.assign(document.createElement('div'), typeof attr === 'string' ? { className: attr } : attr);
 	div.append(...nodes)
 	return div;
 }
@@ -546,17 +546,17 @@ var SIZES = {
 }
 
 var DEFAULT_CHOICES = [
-	{id: 'startup',       label: 'On Next Startup',     type: 'startup',  params: {},                              enabled: true, builtin: true, repeat_id: 'startup',       menuLabel: 'till next startup'},
-	{id: 'in-an-hour',   label: 'In One Hour',          type: 'relative', params: {amount: 1, unit: 'hour'},      enabled: true, builtin: true, repeat_id: 'hourly',        menuLabel: 'for an hour'},
-	{id: 'today-morning',label: 'This Morning',         type: 'morning',  params: {day: 'today'},                 enabled: true, builtin: true, repeat_id: null,            menuLabel: 'till this morning'},
-	{id: 'today-evening',label: 'This Evening',         type: 'evening',  params: {day: 'today'},                 enabled: true, builtin: true, repeat_id: 'daily',         menuLabel: 'till this evening'},
-	{id: 'tom-morning',  label: 'Tomorrow Morning',     type: 'morning',  params: {day: 'tomorrow'},              enabled: true, builtin: true, repeat_id: 'daily_morning', menuLabel: 'till tomorrow morning'},
-	{id: 'tom-evening',  label: 'Tomorrow Evening',     type: 'evening',  params: {day: 'tomorrow'},              enabled: true, builtin: true, repeat_id: 'daily_evening', menuLabel: 'till tomorrow evening'},
-	{id: 'weekend',      label: 'Saturday',             type: 'weekday',  params: {weekday: 6, modifier: 'morning'}, enabled: true, builtin: true, repeat_id: 'weekends',   menuLabel: 'till the weekend'},
-	{id: 'monday',       label: 'Next Monday',          type: 'weekday',  params: {weekday: 1, modifier: 'morning'}, enabled: true, builtin: true, repeat_id: 'mondays',    menuLabel: 'till next Monday'},
-	{id: 'week',         label: 'Next Week',            type: 'week',     params: {modifier: 'morning'},          enabled: true, builtin: true, repeat_id: 'weekly',        menuLabel: 'for a week'},
-	{id: 'month',        label: 'Next Month',           type: 'month',    params: {},                              enabled: true, builtin: true, repeat_id: 'monthly',       menuLabel: 'for a month'},
-	{id: 'device-startup', label: 'On Startup of',      type: 'device',   params: {device: ''},                    enabled: false, builtin: true, repeat_id: null,           menuLabel: 'till startup of'},
+	{ id: 'startup', label: 'On Next Startup', type: 'startup', params: {}, enabled: true, builtin: true, repeat_id: 'startup', menuLabel: 'till next startup' },
+	{ id: 'in-an-hour', label: 'In One Hour', type: 'relative', params: { amount: 1, unit: 'hour' }, enabled: true, builtin: true, repeat_id: 'hourly', menuLabel: 'for an hour' },
+	{ id: 'today-morning', label: 'This Morning', type: 'morning', params: { day: 'today' }, enabled: true, builtin: true, repeat_id: null, menuLabel: 'till this morning' },
+	{ id: 'today-evening', label: 'This Evening', type: 'evening', params: { day: 'today' }, enabled: true, builtin: true, repeat_id: 'daily', menuLabel: 'till this evening' },
+	{ id: 'tom-morning', label: 'Tomorrow Morning', type: 'morning', params: { day: 'tomorrow' }, enabled: true, builtin: true, repeat_id: 'daily_morning', menuLabel: 'till tomorrow morning' },
+	{ id: 'tom-evening', label: 'Tomorrow Evening', type: 'evening', params: { day: 'tomorrow' }, enabled: true, builtin: true, repeat_id: 'daily_evening', menuLabel: 'till tomorrow evening' },
+	{ id: 'weekend', label: 'Saturday', type: 'weekday', params: { weekday: 6, modifier: 'morning' }, enabled: true, builtin: true, repeat_id: 'weekends', menuLabel: 'till the weekend' },
+	{ id: 'monday', label: 'Next Monday', type: 'weekday', params: { weekday: 1, modifier: 'morning' }, enabled: true, builtin: true, repeat_id: 'mondays', menuLabel: 'till next Monday' },
+	{ id: 'week', label: 'Next Week', type: 'week', params: { modifier: 'morning' }, enabled: true, builtin: true, repeat_id: 'weekly', menuLabel: 'for a week' },
+	{ id: 'month', label: 'Next Month', type: 'month', params: {}, enabled: true, builtin: true, repeat_id: 'monthly', menuLabel: 'for a month' },
+	{ id: 'device-startup', label: 'On Startup of', type: 'device', params: { device: '' }, enabled: false, builtin: true, repeat_id: null, menuLabel: 'till startup of' },
 ];
 
 function buildChoiceObject(c, NOW, config) {
@@ -583,7 +583,7 @@ function buildChoiceObject(c, NOW, config) {
 			startUp = true;
 			break;
 		case 'relative':
-			var unitMap = {hour: 'h', day: 'd', week: 'w', month: 'M'};
+			var unitMap = { hour: 'h', day: 'd', week: 'w', month: 'M' };
 			var u = unitMap[p.unit] || 'h';
 			time = NOW.add(p.amount, u);
 			timeString = time.dayOfYear() === NOW.dayOfYear() ? 'Today' : 'Tomorrow';
@@ -668,7 +668,7 @@ function buildChoiceObject(c, NOW, config) {
 
 	var label = c.type === 'evening' ? getEveningLabel(ev[0], p.day === 'today' ? undefined : p.day) : c.label;
 
-	return {label, repeatLabel, time, timeString, repeatTime, repeatTimeString, repeat_id: c.repeat_id || null, menuLabel: c.menuLabel || '', disabled, repeatDisabled, startUp, _config: c};
+	return { label, repeatLabel, time, timeString, repeatTime, repeatTimeString, repeat_id: c.repeat_id || null, menuLabel: c.menuLabel || '', disabled, repeatDisabled, startUp, _config: c };
 }
 
 const DEFAULT_OPTIONS = {
@@ -685,13 +685,13 @@ const DEFAULT_OPTIONS = {
 	weekStart: 0,
 	choiceConfig: DEFAULT_CHOICES,
 	contextMenu: ['startup', 'in-an-hour', 'today-evening', 'tom-morning', 'weekend'],
-	couchdb: {url: '', username: '', password: '', database: ''}
+	couchdb: { url: '', username: '', password: '', database: '' }
 }
 
 var calcObjectSize = obj => SIZES[typeof obj](obj);
 
 var clipboard = text => {
-	var el = Object.assign(document.createElement('textarea'), {innerText: text});
+	var el = Object.assign(document.createElement('textarea'), { innerText: text });
 	document.body.append(el); el.select();
 	document.execCommand('copy'); el.remove();
 }
@@ -701,7 +701,7 @@ var formatSnoozedUntil = t => {
 	var ts = t.wakeUpTime;
 	var date = dayjs(ts);
 	if (date.dayOfYear() === dayjs().dayOfYear()) return (date.hour() > 17 ? 'Tonight' : 'Today') + date.format(` [@] ${getHourFormat(date.minute() !== 0)}`);
-	if (date.dayOfYear() === dayjs().add(1,'d').dayOfYear()) return 'Tomorrow' + date.format(` [@] ${getHourFormat(date.minute() !== 0)}`);
+	if (date.dayOfYear() === dayjs().add(1, 'd').dayOfYear()) return 'Tomorrow' + date.format(` [@] ${getHourFormat(date.minute() !== 0)}`);
 	if (date.week() === dayjs().week()) return date.format(`dddd [@] ${getHourFormat(date.minute() !== 0)}`);
 	if (date.year() !== dayjs().year()) return date.format(`ddd, MMM D, YYYY`);
 	return date.format(`ddd, MMM D [@] ${getHourFormat(date.minute() !== 0)}`);
@@ -730,8 +730,8 @@ var getOrdinal = num => {
 var resizeDropdowns = _ => {
 	document.querySelectorAll('select').forEach(s => {
 		s.addEventListener('change', e => {
-			var d = Object.assign(document.createElement('select'), {style: {visibility: 'hidden', position: 'fixed'}});
-			var o = Object.assign(document.createElement('option'), {innerText: e.target.options[e.target.selectedIndex].text});
+			var d = Object.assign(document.createElement('select'), { style: { visibility: 'hidden', position: 'fixed' } });
+			var o = Object.assign(document.createElement('option'), { innerText: e.target.options[e.target.selectedIndex].text });
 			d.append(o);
 			e.target.after(d);
 			e.target.style.width = `${d.getBoundingClientRect().width}px`;
@@ -743,7 +743,7 @@ var resizeDropdowns = _ => {
 
 var getUrlParam = p => {
 	var url = new URLSearchParams(window.location.search);
-	return url.get(p); 
+	return url.get(p);
 }
 
 var upgradeSettings = settings => {
@@ -756,10 +756,10 @@ var upgradeSettings = settings => {
 
 var bgLog = (logs, colors, timestampColor = 'grey') => {
 	var timestamp = dayjs().format('[%c]DD/MM/YY HH:mm:ss[%c] | ')
-	logs = logs.map(l => '%c'+l+'%c').join(' ')
+	logs = logs.map(l => '%c' + l + '%c').join(' ')
 	colors.unshift(timestampColor);
-	colors = colors.flatMap((v,i,a)=>i !== a.length ? [v, ''] : v).map(c => {
-		var colors = {green:'limegreen', red:'crimson', blue:'dodgerblue', yellow:'gold', pink:'violet', grey:'slategrey', white: 'navajowhite'}
+	colors = colors.flatMap((v, i, a) => i !== a.length ? [v, ''] : v).map(c => {
+		var colors = { green: 'limegreen', red: 'crimson', blue: 'dodgerblue', yellow: 'gold', pink: 'violet', grey: 'slategrey', white: 'navajowhite' }
 		return 'color:' + (colors[c] || 'unset')
 	})
 	console.log(timestamp + logs, ...colors)
@@ -770,7 +770,7 @@ var showIconOnScroll = _ => {
 	var logo = document.querySelector('body > div.scroll-logo');
 	if (!header || !logo) return;
 
-	logo.addEventListener('click', _ => window.scrollTo({top: 0,behavior: 'smooth'}));
+	logo.addEventListener('click', _ => window.scrollTo({ top: 0, behavior: 'smooth' }));
 	document.addEventListener('scroll', _ => {
 		if (logo.classList.contains('hidden') && window.pageYOffset > (header.offsetHeight + header.offsetTop)) logo.classList.remove('hidden')
 		if (!logo.classList.contains('hidden') && window.pageYOffset <= (header.offsetHeight + header.offsetTop)) logo.classList.add('hidden')
