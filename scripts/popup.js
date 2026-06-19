@@ -181,7 +181,8 @@ async function buildChoices() {
 		if (o._config && o._config.icon) {
 			icon = Object.assign(document.createElement('span'), {className: 'choice-emoji', innerText: o._config.icon});
 		} else {
-			icon = Object.assign(document.createElement('img'), {src: `../icons/${iconTheme}/${name}.png`});
+			var iconName = (o._config && o._config.type === 'device') ? 'startup' : name;
+			icon = Object.assign(document.createElement('img'), {src: `../icons/${iconTheme}/${iconName}.png`});
 			icon.onerror = _ => { icon.src = '../icons/unknown.png'; icon.onerror = null; };
 		}
 
