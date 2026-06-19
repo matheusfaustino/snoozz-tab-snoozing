@@ -2,7 +2,7 @@
 	"name": "Snoozz - Snooze Tabs Homelab version",
 	"short_name": "Snoozz homelab",
 	"description": "Declutter your browser by snoozing tabs and windows until you actually need them.",
-	"version": "2.8.2",
+	"version": "2.8.3",
 	"icons": {
 		"128": "icons/ext-icon-128.png",
 		"48": "icons/ext-icon-48.png",

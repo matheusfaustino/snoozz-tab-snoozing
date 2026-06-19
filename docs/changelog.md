@@ -9,6 +9,12 @@ PRs and other ideas are welcome.
 
 ## Changes ##
 **June 2026**
+#### 2.8.3
+- Add device-targeted wake-up: snooze a tab "On Startup of" a specific device so it only reopens on that device
+- Default the "On Startup of" device choice to the rocket icon used by "On Next Startup"
+- Default browser detection to Firefox
+- Show the tab's id alongside the napping date in the nap room (debugging aid)
+
 #### 2.8.2
 - Fix context menus being set up twice on startup (top-level load + `init`), which could race two rebuild cycles and throw a duplicate-id error
 
