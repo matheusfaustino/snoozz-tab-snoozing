@@ -23,6 +23,15 @@ async function initialize() {
 
 	updateSyncStatus();
 	chrome.storage.onChanged.addListener(changes => { if (changes.snoozzSyncStatus) updateSyncStatus(changes.snoozzSyncStatus.newValue); });
+
+	if (localDB && localDB.changes) {
+		localDB.changes({live: true, since: 'now', include_docs: false}).on('change', info => {
+			if (info && info.id && info.id.indexOf('device:') === 0) {
+				var current = document.getElementById('deviceName');
+				renderKnownDevices(current ? current.value.trim() : '');
+			}
+		});
+	}
 	
 
 	if (getBrowser() === 'safari') chrome.runtime.sendMessage({wakeUp: true});
@@ -58,6 +67,11 @@ function updateFormValues(storage) {
 			document.getElementById(o).setAttribute('data-orig-value', storage[o]);
 		}
 	});
+	var devNameEl = document.getElementById('deviceName');
+	if (devNameEl) {
+		devNameEl.value = storage.deviceName || '';
+		devNameEl.setAttribute('data-orig-value', storage.deviceName || '');
+	}
 	var choices = (storage.choiceConfig && storage.choiceConfig.length) ? storage.choiceConfig : DEFAULT_CHOICES;
 	renderChoiceList(choices);
 	renderContextMenu(choices, storage.contextMenu || DEFAULT_OPTIONS.contextMenu);
@@ -67,7 +81,24 @@ function updateFormValues(storage) {
 			if (el) el.value = storage.couchdb[k] || '';
 		});
 	}
+	renderKnownDevices(storage.deviceName || '');
 	resizeDropdowns();
+}
+
+async function renderKnownDevices(myName) {
+	var list = document.getElementById('known-devices-list');
+	if (!list) return;
+	var devices = await getKnownDevices();
+	list.innerHTML = '';
+	if (!devices.length) {
+		var empty = Object.assign(document.createElement('span'), {className: 'device-empty', innerText: 'No devices have registered yet.'});
+		list.append(empty);
+		return;
+	}
+	devices.forEach(d => {
+		var pill = Object.assign(document.createElement('span'), {className: 'device-pill' + (d.name === myName ? ' self' : ''), innerText: d.name});
+		list.append(pill);
+	});
 }
 
 function renderChoiceList(choices) {
@@ -287,6 +318,8 @@ async function editChoiceIcon(id) {
 function addListeners() {
 	document.querySelectorAll('select.direct').forEach(s => s.addEventListener('change', save));
 	document.querySelectorAll('.couchdb-input').forEach(i => i.addEventListener('change', save));
+	var devNameEl = document.getElementById('deviceName');
+	if (devNameEl) devNameEl.addEventListener('change', save);
 
 	var addBtn = document.getElementById('add-choice-btn');
 	addBtn.addEventListener('click', _ => document.getElementById('add-choice-form').classList.toggle('hidden'));
@@ -361,7 +394,32 @@ Would you like to update ${tabsToChange.length > 1 ? 'them' : 'it'} to snooze ti
 		var el = document.getElementById('couchdb_' + k);
 		if (el) options.couchdb[k] = el.value.trim();
 	});
+
+	var devNameEl = document.getElementById('deviceName');
+	var oldDeviceName = '';
+	var newDeviceName = '';
+	if (devNameEl) {
+		oldDeviceName = (devNameEl.getAttribute('data-orig-value') || '').trim();
+		newDeviceName = devNameEl.value.trim();
+		if (!newDeviceName) {
+			newDeviceName = 'device-' + getRandomId().substring(0, 6).toLowerCase();
+			devNameEl.value = newDeviceName;
+		}
+		options.deviceName = newDeviceName;
+	}
+
 	await saveOptions(options);
+
+	if (devNameEl && oldDeviceName && oldDeviceName !== newDeviceName) {
+		await renameDeviceOnTabs(oldDeviceName, newDeviceName);
+		await removeDeviceRegistry(oldDeviceName);
+	}
+	if (devNameEl && newDeviceName) {
+		await upsertDeviceRegistry(newDeviceName);
+		devNameEl.setAttribute('data-orig-value', newDeviceName);
+		await renderKnownDevices(newDeviceName);
+	}
+
 	await setTheme();
 	await fetchHourFormat();
 	await changeIcons(options.icons);

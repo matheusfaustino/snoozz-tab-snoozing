@@ -61,7 +61,8 @@ async function wakeUpTask(cachedTabs) {
 
 var debounce;
 async function setNextAlarm(tabs) {
-	var next = sleeping(tabs).filter(t => t.wakeUpTime && !t.paused);
+	var myDevice = await getDeviceName();
+	var next = sleeping(tabs).filter(t => t.wakeUpTime && !t.paused && (!t.targetDevice || t.targetDevice === myDevice));
 	next = next.length ? next.reduce((t1, t2) => t1.wakeUpTime < t2.wakeUpTime ? t1 : t2) : undefined;
 	if (!next) return;
 	if (next.wakeUpTime <= dayjs().valueOf()) {
@@ -76,7 +77,8 @@ async function setNextAlarm(tabs) {
 
 async function wakeMeUp(tabs) {
 	var now = dayjs().valueOf();
-	var wakingUp = t => !t.paused && !t.opened && (t.url || (t.tabs && t.tabs.length && t.tabs.length > 0)) && t.wakeUpTime && t.wakeUpTime <= now;
+	var myDevice = await getDeviceName();
+	var wakingUp = t => !t.paused && !t.opened && (t.url || (t.tabs && t.tabs.length && t.tabs.length > 0)) && t.wakeUpTime && t.wakeUpTime <= now && (!t.targetDevice || t.targetDevice === myDevice);
 	if (!tabs.some(wakingUp)) return;
 	// Re-read from PouchDB to pick up any state pulled from remote since tabs was loaded,
 	// preventing a tab from being opened twice if another device already woke it.
@@ -151,14 +153,15 @@ async function snoozeInBackground(item, tab) {
 		return createNotification(null, `Can't snoozz that :(`, 'icons/logo.svg', 'The time you have selected is invalid.', true);
 	}
 	// add attributes
-	var startUp = item.menuItemId === 'startup' ? true : undefined;
+	var startUp = c && c.startUp ? true : undefined;
+	var targetDevice = c && c._config && c._config.params && c._config.params.device ? c._config.params.device : undefined;
 	var title = !isHref ? tab.title : (item.linkText ? item.linkText : item.selectionText);
 	var wakeUpTime = snoozeTime.valueOf();
 	var pinned = !isHref && tab.pinned ? tab.pinned : undefined;
 	var cookieStoreId = tab.cookieStoreId;
-	var assembledTab = Object.assign(item, { url, title, pinned, cookieStoreId, startUp, wakeUpTime })
+	var assembledTab = Object.assign(item, { url, title, pinned, cookieStoreId, startUp, wakeUpTime, targetDevice })
 
-	var snoozed = await snoozeTab(item.menuItemId === 'startup' ? 'startup' : snoozeTime.valueOf(), assembledTab);
+	var snoozed = await snoozeTab(startUp ? 'startup' : snoozeTime.valueOf(), assembledTab, targetDevice);
 
 	var msg = `${!isHref ? tab.title : getHostname(url)} will wake up ${formatSnoozedUntil(assembledTab)}.`
 	createNotification(snoozed.tabDBId, 'A new tab is now napping :)', 'icons/logo.svg', msg, true);
@@ -247,6 +250,7 @@ async function setUpExtension() {
 	options = Object.assign(DEFAULT_OPTIONS, options);
 	options = upgradeSettings(options);
 	await saveOptions(options);
+	await ensureDeviceName();
 	await setupCouchSync();
 	await init();
 }
@@ -263,9 +267,12 @@ async function init(isStartup) {
 	// On browser startup, give the server sync a chance to pull remote state first
 	// so we don't reopen startup tabs another device already handled.
 	if (isStartup) await waitForInitialSync();
+	var myDevice = await ensureDeviceName();
+	await upsertDeviceRegistry(myDevice);
 	var allTabs = await getSnoozedTabs();
-	if (allTabs && allTabs.length && allTabs.some(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened)) {
-		allTabs.filter(t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened).forEach(t => t.wakeUpTime = dayjs().subtract(10, 's').valueOf());
+	var isMyStartupTab = t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened && (!t.targetDevice || t.targetDevice === myDevice);
+	if (allTabs && allTabs.length && allTabs.some(isMyStartupTab)) {
+		allTabs.filter(isMyStartupTab).forEach(t => t.wakeUpTime = dayjs().subtract(10, 's').valueOf());
 		await saveTabs(allTabs);
 	}
 	await wakeUpTask();

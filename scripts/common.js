@@ -89,8 +89,9 @@ async function saveTabs(tabs) {
 	var revMap = {};
 	existing.rows.forEach(r => { revMap[r.id] = r.value.rev; });
 	var tabIds = new Set(tabs.map(t => t.id));
+	// Preserve non-tab docs (like device:<name> registry entries) when rewriting the tab set.
 	var toDelete = existing.rows
-		.filter(r => !tabIds.has(r.id))
+		.filter(r => !tabIds.has(r.id) && r.id.indexOf('device:') !== 0)
 		.map(r => ({_id: r.id, _rev: r.value.rev, _deleted: true}));
 	var toUpsert = tabs.map(t => {
 		var doc = Object.assign({}, t, {_id: t.id});
@@ -98,6 +99,43 @@ async function saveTabs(tabs) {
 		return doc;
 	});
 	await localDB.bulkDocs([...toDelete, ...toUpsert]);
+}
+
+async function getDeviceName() {
+	var n = await getOptions('deviceName');
+	return n && typeof n === 'string' && n.length ? n : null;
+}
+async function ensureDeviceName() {
+	var n = await getDeviceName();
+	if (n) return n;
+	var generated = 'device-' + getRandomId().substring(0, 6).toLowerCase();
+	await saveOption('deviceName', generated);
+	return generated;
+}
+async function getKnownDevices() {
+	if (!localDB) return [];
+	var result = await localDB.allDocs({include_docs: true, startkey: 'device:', endkey: 'device:￿'});
+	return result.rows.map(r => r.doc).filter(d => d && d.name).sort((a, b) => a.name.localeCompare(b.name));
+}
+async function upsertDeviceRegistry(name) {
+	if (!localDB || !name) return;
+	var id = 'device:' + name;
+	var doc = {_id: id, name: name, lastSeen: dayjs().valueOf()};
+	try { var existing = await localDB.get(id); doc._rev = existing._rev; } catch (e) {}
+	await localDB.put(doc);
+}
+async function removeDeviceRegistry(name) {
+	if (!localDB || !name) return;
+	var id = 'device:' + name;
+	try { var existing = await localDB.get(id); await localDB.remove(existing); } catch (e) {}
+}
+async function renameDeviceOnTabs(oldName, newName) {
+	if (!oldName || !newName || oldName === newName) return;
+	var tabs = await getSnoozedTabs();
+	if (!tabs || !tabs.length) return;
+	var changed = false;
+	tabs.forEach(t => { if (t.targetDevice === oldName) { t.targetDevice = newName; changed = true; } });
+	if (changed) await saveTabs(tabs);
 }
 /*	CREATE 	*/
 async function createAlarm(when, willWakeUpATab) {
@@ -253,7 +291,7 @@ async function editSnoozeRecurring(tabId, data, ) {
 }
 
 /*		SNOOZING 	*/
-async function snoozeTab(snoozeTime, overrideTab) {
+async function snoozeTab(snoozeTime, overrideTab, targetDevice) {
 	var activeTab = overrideTab || await getTabsInWindow(true);
 	if (!activeTab || !activeTab.url) return {};
 	var sleepyTab = {
@@ -267,19 +305,20 @@ async function snoozeTab(snoozeTime, overrideTab) {
 		timeCreated: dayjs().valueOf(),
 	}
 	if (snoozeTime === 'startup') sleepyTab.startUp = true;
+	if (targetDevice) sleepyTab.targetDevice = targetDevice;
 	await saveTab(sleepyTab);
 	chrome.runtime.sendMessage({logOptions: ['tab', sleepyTab, snoozeTime]});
 	var tabId = activeTab.id || await getTabId(activeTab.url);
 	return {tabId, tabDBId: sleepyTab.id}
 }
 
-async function snoozeWindow(snoozeTime, isASelection) {
+async function snoozeWindow(snoozeTime, isASelection, targetDevice) {
 	var tabsInWindow = await getTabsInWindow();
 	var validTabs = tabsInWindow.filter(t => !isDefault(t) && isValid(t));
 	if (isASelection) validTabs = validTabs.filter(t => t.highlighted);
 	if (validTabs.length === 0) return {};
 	if (validTabs.length === 1) {
-		await snoozeTab(snoozeTime, validTabs[0])
+		await snoozeTab(snoozeTime, validTabs[0], targetDevice)
 		return {windowId: tabsInWindow.find(w => w.active).windowId};
 	}
 	var sleepyGroup = {
@@ -294,6 +333,7 @@ async function snoozeWindow(snoozeTime, isASelection) {
 		sleepyGroup.selection = true;
 	}
 	if (snoozeTime === 'startup') sleepyGroup.startUp = true;
+	if (targetDevice) sleepyGroup.targetDevice = targetDevice;
 
 	sleepyGroup = Object.assign(sleepyGroup, {
 		tabs: validTabs.map(t => ({
@@ -308,13 +348,14 @@ async function snoozeWindow(snoozeTime, isASelection) {
 	return isASelection ? {tabId: tabsInWindow.filter(t => t.highlighted).map(t => t.id)} : {windowId: tabsInWindow.find(w => w.active).windowId};
 }
 
-async function snoozeRecurring(target, data) {
+async function snoozeRecurring(target, data, targetDevice) {
 	var sleepyObj = {
 		id: getRandomId(),
 		timeCreated: dayjs().valueOf(),
 		repeat: data,
 		paused: false,
 	}
+	if (targetDevice) sleepyObj.targetDevice = targetDevice;
 
 	var validTabs, activeTab, tabsInWindow = await getTabsInWindow();
 	validTabs = tabsInWindow.filter(t => !isDefault(t) && isValid(t));
@@ -380,6 +421,19 @@ async function saveChoiceModifier(choiceId, modifier) {
 	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice && choice.params) choice.params.modifier = modifier;
+	o.choiceConfig = choices;
+	await saveOptions(o);
+}
+
+async function saveChoiceDevice(choiceId, device) {
+	var o = await getOptions();
+	if (!o || Array.isArray(o)) o = {};
+	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+	var choice = choices.find(c => c.id === choiceId);
+	if (choice) {
+		choice.params = choice.params || {};
+		choice.params.device = device;
+	}
 	o.choiceConfig = choices;
 	await saveOptions(o);
 }
@@ -502,6 +556,7 @@ var DEFAULT_CHOICES = [
 	{id: 'monday',       label: 'Next Monday',          type: 'weekday',  params: {weekday: 1, modifier: 'morning'}, enabled: true, builtin: true, repeat_id: 'mondays',    menuLabel: 'till next Monday'},
 	{id: 'week',         label: 'Next Week',            type: 'week',     params: {modifier: 'morning'},          enabled: true, builtin: true, repeat_id: 'weekly',        menuLabel: 'for a week'},
 	{id: 'month',        label: 'Next Month',           type: 'month',    params: {},                              enabled: true, builtin: true, repeat_id: 'monthly',       menuLabel: 'for a month'},
+	{id: 'device-startup', label: 'On Startup of',      type: 'device',   params: {device: ''},                    enabled: false, builtin: true, repeat_id: null,           menuLabel: 'till startup of'},
 ];
 
 function buildChoiceObject(c, NOW, config) {
@@ -599,6 +654,15 @@ function buildChoiceObject(c, NOW, config) {
 			repeatLabel = 'Every Month';
 			repeatTime = NOW.format(getHourFormat(true));
 			repeatTimeString = `${getOrdinal(NOW.format('D'))} of Month`;
+			break;
+		case 'device':
+			time = NOW.add(20, 'y');
+			timeString = '';
+			repeatLabel = '';
+			repeatTime = '';
+			repeatTimeString = '';
+			startUp = true;
+			repeatDisabled = true;
 			break;
 	}
 

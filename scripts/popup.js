@@ -173,6 +173,8 @@ async function generatePreview(type) {
 
 async function buildChoices() {
 	var choices = await getChoices();
+	var knownDevices = await getKnownDevices();
+	var myDeviceName = await getDeviceName();
 	colorList = gradientSteps('#F3B845', '#DF4E76', Math.ceil(Object.keys(choices).length / 2) + 1);
 	document.querySelector('.section.choices').append(...(Object.entries(choices).map(([name, o], i) => {
 		var icon;
@@ -184,13 +186,16 @@ async function buildChoices() {
 		}
 
 		var hasModifier = o._config && o._config.params && o._config.params.modifier !== undefined;
+		var isDeviceChoice = o._config && o._config.type === 'device';
 		var selectWrapper = '';
+		var select;
+		var deviceDisabled = false;
 		if (hasModifier) {
 			var cur = o._config.params.modifier;
 			var morning = Object.assign(document.createElement('option'), {value: 'morning', innerText: 'Morning', selected: cur === 'morning'});
 			var evening = Object.assign(document.createElement('option'), {value: 'evening', innerText: 'Evening', selected: cur === 'evening'});
 			var now = Object.assign(document.createElement('option'), {value: 'now', innerText: 'Current Time', selected: cur === 'now'});
-			var select = document.createElement('select');
+			select = document.createElement('select');
 			select.tabIndex = -1;
 			select.addEventListener('change', async e => {
 				await saveChoiceModifier(name, e.target.value);
@@ -205,31 +210,62 @@ async function buildChoices() {
 			});
 			select.append(morning, evening, now);
 			selectWrapper = wrapInDiv({classList: 'select-wrapper'}, select);
+		} else if (isDeviceChoice) {
+			var others = knownDevices.filter(d => d.name !== myDeviceName);
+			deviceDisabled = others.length === 0;
+			var savedDevice = (o._config.params && o._config.params.device) || '';
+			select = document.createElement('select');
+			select.tabIndex = -1;
+			if (deviceDisabled) select.disabled = true;
+			if (knownDevices.length === 0) {
+				var opt = Object.assign(document.createElement('option'), {value: '', innerText: 'no devices known'});
+				select.append(opt);
+			} else {
+				knownDevices.forEach(d => {
+					var lbl = d.name + (d.name === myDeviceName ? ' (this device)' : '');
+					var opt = Object.assign(document.createElement('option'), {value: d.name, innerText: lbl, selected: savedDevice === d.name});
+					select.append(opt);
+				});
+				if (!knownDevices.some(d => d.name === savedDevice)) select.selectedIndex = 0;
+			}
+			select.addEventListener('change', async e => {
+				await saveChoiceDevice(name, e.target.value);
+				var d = Object.assign(document.createElement('select'), {style: {visibility: 'hidden', position: 'fixed'}});
+				var opt = Object.assign(document.createElement('option'), {innerText: e.target.options[e.target.selectedIndex].text});
+				d.append(opt);
+				e.target.after(d);
+				e.target.style.width = `${d.getBoundingClientRect().width}px`;
+				d.remove();
+			});
+			selectWrapper = wrapInDiv({classList: 'select-wrapper'}, select);
 		}
 
 		var label = wrapInDiv({classList: 'label'}, wrapInDiv({className: 'text', innerText: o.label}), selectWrapper);
 		var date = wrapInDiv({classList: 'date', innerText: o.timeString});
 		var time = wrapInDiv({classList: 'time', innerText: dayjs(o.time).format(getHourFormat(dayjs(o.time).minute() !== 0))});
 
+		var disabledNow = o.disabled || deviceDisabled;
 		var c = wrapInDiv({
 			id: name,
-			classList: `choice ${o.disabled ? 'disabled always-disabled' : ''}`,
+			classList: `choice ${disabledNow ? 'disabled always-disabled' : ''}`,
 			style: `--bg:${colorList[Math.floor(i / 2)]}`,
-			tabIndex: o.disabled ? -1 : 0,
+			tabIndex: disabledNow ? -1 : 0,
 		}, wrapInDiv('', icon, label), o.startUp ? wrapInDiv() : wrapInDiv('', date, time));
 		c.setAttribute('data-repeat-id', o.repeat_id);
 		c.addEventListener('mouseover', _ => c.classList.add('focused'));
 		c.addEventListener('mouseout', _ => c.classList.remove('focused'));
-		if (hasModifier) c.addEventListener('keydown', e => {
+		if (hasModifier || isDeviceChoice) c.addEventListener('keydown', e => {
 			if (!e || e.which !== 38 && e.which !== 40) return;
+			if (!select) return;
 			var options = select.querySelectorAll('option');
-			var current = Array.from(options).findIndex(o => o.selected);
+			var current = Array.from(options).findIndex(op => op.selected);
 			if (e.which === 38 && current > 0) options[current - 1].selected = true;
 			if (e.which === 40 && current < options.length - 1) options[current + 1].selected = true;
 			select.dispatchEvent(new Event('change'));
 		});
-		c.onclick = e => {if (c.classList.contains('disabled')) return; if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c);}
-		c.onkeyup = e => {if (c.classList.contains('disabled')) return; if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c);}
+		var pickDevice = _ => (isDeviceChoice && select && select.value) ? select.value : undefined;
+		c.onclick = e => {if (c.classList.contains('disabled')) return; if (!['OPTION', 'SELECT'].includes(e.target.nodeName)) snooze(o.startUp ? 'startup' : o.time, c, pickDevice());}
+		c.onkeyup = e => {if (c.classList.contains('disabled')) return; if (e.which === 13 || e.which === 32) snooze(o.startUp ? 'startup' : o.time, c, pickDevice());}
 		return c;
 	})));
 	document.querySelectorAll('.section.choices .choice select').forEach(s => s.dispatchEvent(new Event('change')));
@@ -481,7 +517,7 @@ async function modify(time, choice) {
 	if (parent && parent.closePopupModal) setTimeout(_ => parent.closePopupModal(), closeDelay);
 }
 
-async function snooze(time, choice) {
+async function snooze(time, choice, targetDevice) {
 	var response, target = document.querySelector('.target.active');
 	if (!target || !['tab', 'window', 'selection', 'group'].includes(target.id)) return;
 
@@ -511,16 +547,16 @@ async function snooze(time, choice) {
 			await displayPreviewAnimation(choice, time.format ? time.format('.HHmm') : '', response.duped ? 'Duplicating...' : 'Going back to sleep');
 			if (parent && parent.closePopupModal) setTimeout(_ => parent.closePopupModal(), closeDelay);
 		} else {
-			response = await snoozeRecurring(target.id, data);
+			response = await snoozeRecurring(target.id, data, targetDevice);
 		}
 	} else if ((isInEditMode || isInDupeMode) && getUrlParam('tabId')) {
 		return modify(time, choice);
 	} else if (target.id === 'tab') {
-		response = await snoozeTab(time);
+		response = await snoozeTab(time, undefined, targetDevice);
 	} else if (target.id === 'window') {
-		response = await snoozeWindow(time);
+		response = await snoozeWindow(time, false, targetDevice);
 	} else if (target.id === 'selection') {
-		response = await snoozeWindow(time, true);
+		response = await snoozeWindow(time, true, targetDevice);
 	}
 	if (!response || (!response.tabId && !response.windowId)) return;
 	await chrome.runtime.sendMessage(Object.assign(response, {close: true, delay: closeDelay}));

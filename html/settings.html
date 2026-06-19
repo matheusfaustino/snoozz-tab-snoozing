@@ -93,6 +93,20 @@
 				<span class="am-pm">PM</span>
 			</div>
 		</div>
+		<div class="input-container" id="device-name-container">
+			<div class="flex">
+				<div>
+					<h4>This Computer's Name</h4>
+					<p>Used by the "On Startup of" snooze choice so tabs only wake up on the chosen computer.</p>
+					<p>Leave empty and save to auto-generate a random name.</p>
+				</div>
+				<input type="text" id="deviceName" placeholder="auto-generated if blank" autocomplete="off" spellcheck="false" maxlength="40">
+			</div>
+			<div class="known-devices">
+				<strong>Known devices</strong>
+				<div id="known-devices-list"></div>
+			</div>
+		</div>
 		<div class="input-container flex">
 			<div>
 				<h4>Time Format</h4>
