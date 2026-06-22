@@ -93,21 +93,6 @@ async function wakeMeUp(tabs) {
 	}
 	await saveTabs(freshTabs);
 
-	// Dedup: if a tab with the same URL is already open, skip reopening it.
-	// State (opened/repeat reschedule) was already persisted above, so dropping
-	// from toOpen leaves the item looking like it woke up — silently.
-	var dedupe = await getOptions('dedupeOnWake');
-	if (dedupe !== 'off') {
-		var openTabs = await new Promise(r => chrome.tabs.query({}, r));
-		var openUrls = new Set((openTabs || []).map(t => t.url).filter(Boolean));
-		toOpen = toOpen.filter(s => {
-			if (s.tabs) return true;
-			if (!s.url || !openUrls.has(s.url)) return true;
-			bgLog(['Dedup: skipping already-open tab', s.id, s.url], ['', 'yellow', '', 'pink'], 'yellow');
-			return false;
-		});
-	}
-
 	// When more than 5 tabs wake up at once, suppress the per-item notifications
 	// and show a single summary instead.
 	var totalTabCount = toOpen.reduce((n, s) => n + (s.tabs && s.tabs.length ? s.tabs.length : 1), 0);

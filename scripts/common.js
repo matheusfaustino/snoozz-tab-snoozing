@@ -199,6 +199,21 @@ async function openExtensionTab(url) {
 }
 
 async function openTab(tab, windowId, automatic = false) {
+	// Dedup: if a tab with the same URL is already open, skip reopening.
+	// The waking caller (wakeMeUp / wakeUpTabsAbruptly) already marked the
+	// snooze as opened in saveTabs, so silently returning here leaves it
+	// looking like it woke up without spawning a duplicate browser tab.
+	if (tab.url) {
+		var dedupe = await getOptions('dedupeOnWake');
+		if (dedupe !== 'off') {
+			var allTabs = await new Promise(r => chrome.tabs.query({}, r));
+			var openUrls = new Set((allTabs || []).map(t => t.url).filter(Boolean));
+			if (openUrls.has(tab.url)) {
+				bgLog(['Dedup: skipping already-open tab', tab.id || '', tab.url], ['', 'yellow', '', 'pink'], 'yellow');
+				return;
+			}
+		}
+	}
 	var windows = await getAllWindows();
 	var cookieStoreId = tab.cookieStoreId ? { cookieStoreId: tab.cookieStoreId } : {};
 	if (tab.incognito) {
