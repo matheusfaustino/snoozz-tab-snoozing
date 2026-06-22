@@ -409,7 +409,7 @@ async function getChoices(which) {
 	var NOW = dayjs();
 	var config = await getOptions(['morning', 'evening', 'choiceConfig']);
 	if (typeof config.morning === 'number' || typeof config.evening === 'number') config = upgradeSettings(config);
-	var choiceConfig = (config.choiceConfig && config.choiceConfig.length) ? config.choiceConfig : DEFAULT_CHOICES;
+	var choiceConfig = ensureBuiltinChoices(config.choiceConfig);
 	var all = {};
 	choiceConfig.filter(c => c.enabled !== false).forEach(c => { all[c.id] = buildChoiceObject(c, NOW, config); });
 	return which ? (all[which] || null) : all;
@@ -418,7 +418,7 @@ async function getChoices(which) {
 async function saveChoiceModifier(choiceId, modifier) {
 	var o = await getOptions();
 	if (!o || Array.isArray(o)) o = {};
-	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, { params: Object.assign({}, c.params) }));
+	var choices = ensureBuiltinChoices(o.choiceConfig);
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice && choice.params) choice.params.modifier = modifier;
 	o.choiceConfig = choices;
@@ -428,7 +428,7 @@ async function saveChoiceModifier(choiceId, modifier) {
 async function saveChoiceDevice(choiceId, device) {
 	var o = await getOptions();
 	if (!o || Array.isArray(o)) o = {};
-	var choices = (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, { params: Object.assign({}, c.params) }));
+	var choices = ensureBuiltinChoices(o.choiceConfig);
 	var choice = choices.find(c => c.id === choiceId);
 	if (choice) {
 		choice.params = choice.params || {};
@@ -558,6 +558,17 @@ var DEFAULT_CHOICES = [
 	{ id: 'month', label: 'Next Month', type: 'month', params: {}, enabled: true, builtin: true, repeat_id: 'monthly', menuLabel: 'for a month' },
 	{ id: 'device-startup', label: 'On Startup of', type: 'device', params: { device: '' }, enabled: false, builtin: true, repeat_id: null, menuLabel: 'till startup of' },
 ];
+
+var cloneDefaultChoices = _ => DEFAULT_CHOICES.map(c => Object.assign({}, c, { params: Object.assign({}, c.params) }));
+
+var ensureBuiltinChoices = choices => {
+	if (!choices || !choices.length) return cloneDefaultChoices();
+	var ids = new Set(choices.map(c => c.id));
+	DEFAULT_CHOICES.forEach(d => {
+		if (d.builtin && !ids.has(d.id)) choices.push(Object.assign({}, d, { params: Object.assign({}, d.params) }));
+	});
+	return choices;
+};
 
 function buildChoiceObject(c, NOW, config) {
 	var p = c.params || {};

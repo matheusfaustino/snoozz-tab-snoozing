@@ -72,7 +72,9 @@ function updateFormValues(storage) {
 		devNameEl.value = storage.deviceName || '';
 		devNameEl.setAttribute('data-orig-value', storage.deviceName || '');
 	}
-	var choices = (storage.choiceConfig && storage.choiceConfig.length) ? storage.choiceConfig : DEFAULT_CHOICES;
+	var before = (storage.choiceConfig && storage.choiceConfig.length) ? storage.choiceConfig.length : 0;
+	var choices = ensureBuiltinChoices(storage.choiceConfig);
+	if (storage.choiceConfig && choices.length !== before) saveOption('choiceConfig', choices);
 	renderChoiceList(choices);
 	renderContextMenu(choices, storage.contextMenu || DEFAULT_OPTIONS.contextMenu);
 	if (storage.couchdb) {
@@ -192,7 +194,7 @@ function renderContextMenu(choices, saved) {
 			});
 			sel.addEventListener('change', async e => {
 				await saveChoiceModifier(c.id, e.target.value);
-				var choices2 = await getOptions('choiceConfig') || DEFAULT_CHOICES;
+				var choices2 = ensureBuiltinChoices(await getOptions('choiceConfig'));
 				var found = choices2.find(x => x.id === c.id);
 				if (found) found.params.modifier = e.target.value;
 				renderChoiceList(choices2);
@@ -220,7 +222,7 @@ async function saveContextMenu() {
 async function getCurrentChoices() {
 	var o = await getOptions();
 	if (!o || Array.isArray(o)) o = {};
-	return (o.choiceConfig && o.choiceConfig.length) ? o.choiceConfig : DEFAULT_CHOICES.map(c => Object.assign({}, c, {params: Object.assign({}, c.params)}));
+	return ensureBuiltinChoices(o.choiceConfig);
 }
 
 async function toggleChoice(id, enabled) {
