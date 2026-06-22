@@ -61,7 +61,7 @@ function updateFormValues(storage) {
 		document.getElementById(`${o}_h`).value = storage[o][0];
 		document.getElementById(`${o}_m`).value = storage[o][1];
 	});
-	['history', 'icons', 'theme', 'notifications', 'badge', 'closeDelay', 'hourFormat', 'weekStart'].forEach(o => {
+	['history', 'icons', 'theme', 'notifications', 'badge', 'closeDelay', 'hourFormat', 'weekStart', 'dedupeOnWake'].forEach(o => {
 		if (storage[o] !== undefined && document.querySelector(`#${o} option[value="${storage[o]}"]`)) {
 			document.getElementById(o).value = storage[o].toString();
 			document.getElementById(o).setAttribute('data-orig-value', storage[o]);

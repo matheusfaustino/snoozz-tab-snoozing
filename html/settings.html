@@ -176,6 +176,16 @@
 		</div>
 		<div class="input-container flex">
 			<div>
+				<h4>Prevent waking up duplicates</h4>
+				<p>If a tab with the same URL is already open when a snooze fires, don't reopen it. The snoozed item is silently marked as woken anyway.</p>
+			</div>
+			<div class="select-wrapper"><select class="direct" id="dedupeOnWake">
+				<option value="on" selected>Yes</option>
+				<option value="off">No</option>
+			</select></div>
+		</div>
+		<div class="input-container flex">
+			<div>
 				<h4>Show badge on Snoozz icon</h4>
 				<p>Choose if you want to see the number of snoozzed tabs<br> on top of the extension icon.</p>
 			</div>

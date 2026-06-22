@@ -694,6 +694,7 @@ const DEFAULT_OPTIONS = {
 	closeDelay: 1,
 	napCollapsed: [],
 	weekStart: 0,
+	dedupeOnWake: 'on',
 	choiceConfig: DEFAULT_CHOICES,
 	contextMenu: ['startup', 'in-an-hour', 'today-evening', 'tom-morning', 'weekend'],
 	couchdb: { url: '', username: '', password: '', database: '' }
