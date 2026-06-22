@@ -9,6 +9,11 @@ PRs and other ideas are welcome.
 
 ## Changes ##
 **June 2026**
+#### 2.8.4
+- Add a "Prevent waking up duplicates" setting (on by default): if a tab with the same URL is already open when a snooze fires, it's silently marked as woken instead of opening a second copy
+- Apply the duplicate check to window and selection snoozes too, and to manual wake-ups from the nap room (one URL check per tab, inside `openTab`)
+- Fix: users who had customised their popup choices in 2.8 did not get the new "On Startup of" device choice on upgrade to 2.8.3; missing built-in choices are now merged into existing saved configs
+
 #### 2.8.3
 - Add device-targeted wake-up: snooze a tab "On Startup of" a specific device so it only reopens on that device
 - Default the "On Startup of" device choice to the rocket icon used by "On Next Startup"
