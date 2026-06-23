@@ -9,6 +9,10 @@ PRs and other ideas are welcome.
 
 ## Changes ##
 **June 2026**
+#### 2.8.5
+- Also trigger "On Startup" tabs when the machine wakes from sleep on a new calendar day — covers the case where the computer slept overnight with the browser still open, so `chrome.runtime.onStartup` never fires
+- Refresh the "Snoozz has been updated" modal in the nap room with the headline features shipped since the homelab fork (2.7), and link to the AMO versions page and the GitHub roadmap
+
 #### 2.8.4
 - Add a "Prevent waking up duplicates" setting (on by default): if a tab with the same URL is already open when a snooze fires, it's silently marked as woken instead of opening a second copy
 - Apply the duplicate check to window and selection snoozes too, and to manual wake-ups from the nap room (one URL check per tab, inside `openTab`)
