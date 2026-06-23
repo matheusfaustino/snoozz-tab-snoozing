@@ -263,18 +263,24 @@ function sendToLogs([which, p1]) {
 	} catch (e) { console.log('logError', e, which, p1) }
 }
 
-async function init(isStartup) {
-	// On browser startup, give the server sync a chance to pull remote state first
-	// so we don't reopen startup tabs another device already handled.
-	if (isStartup) await waitForInitialSync();
+async function runStartupTabs() {
 	var myDevice = await ensureDeviceName();
-	await upsertDeviceRegistry(myDevice);
 	var allTabs = await getSnoozedTabs();
 	var isMyStartupTab = t => (t.startUp || (t.repeat && t.repeat.type === 'startup')) && !t.opened && (!t.targetDevice || t.targetDevice === myDevice);
 	if (allTabs && allTabs.length && allTabs.some(isMyStartupTab)) {
 		allTabs.filter(isMyStartupTab).forEach(t => t.wakeUpTime = dayjs().subtract(10, 's').valueOf());
 		await saveTabs(allTabs);
 	}
+	await new Promise(r => chrome.storage.local.set({ lastStartupRun: dayjs().format('YYYY-MM-DD') }, r));
+}
+
+async function init(isStartup) {
+	// On browser startup, give the server sync a chance to pull remote state first
+	// so we don't reopen startup tabs another device already handled.
+	if (isStartup) await waitForInitialSync();
+	var myDevice = await ensureDeviceName();
+	await upsertDeviceRegistry(myDevice);
+	await runStartupTabs();
 	await wakeUpTask();
 	// Context menus are set up at top-level on every background load (and rebuilt on
 	// option changes), so init() must not also call setUpContextMenus — doing both
@@ -294,6 +300,12 @@ setUpContextMenus();
 chrome.alarms.onAlarm.addListener(async a => { if (a.name === 'wakeUpTabs') await wakeUpTask() });
 if (chrome.idle) chrome.idle.onStateChanged.addListener(async s => {
 	if (s === 'active' || getBrowser() === 'firefox') {
+		// If the calendar day has rolled over since we last ran startup tabs, treat the
+		// idle→active transition like a fresh browser startup. Covers the case where the
+		// machine slept overnight with the browser already open, so chrome.runtime.onStartup
+		// never fires.
+		var stored = await new Promise(r => chrome.storage.local.get('lastStartupRun', d => r(d && d.lastStartupRun)));
+		if (stored !== dayjs().format('YYYY-MM-DD')) await runStartupTabs();
 		if (navigator && navigator.onLine === false) {
 			window.addEventListener('online', async _ => { await wakeUpTask() }, { once: true });
 		} else {
